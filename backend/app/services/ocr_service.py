@@ -6,9 +6,13 @@ Combines fast heuristic regex parsing, PyPDF text extraction, and offline fallba
 import io
 import os
 import re
+import logging
 from typing import Dict, Any, List, Optional
 from PIL import Image
+from pypdf import PdfReader
 from app.services.validation_service import parse_and_validate_td3
+
+logger = logging.getLogger("pahchan.ocr")
 
 def extract_mrz_lines_from_text(raw_text: str) -> tuple[Optional[str], Optional[str]]:
     """
@@ -47,14 +51,16 @@ def extract_fields_from_document(
     raw_extracted_text = ""
 
     # 2. Extract text from PDF if uploaded as PDF
-    if filename.lower().endswith(".pdf"):
+    if filename.lower().endswith(".pdf") or image_bytes.startswith(b"%PDF"):
         try:
-            from pypdf import PdfReader
             reader = PdfReader(io.BytesIO(image_bytes))
             for page in reader.pages:
-                raw_extracted_text += page.extract_text() or ""
-        except Exception:
-            pass
+                extracted = page.extract_text()
+                if extracted:
+                    raw_extracted_text += extracted + "\n"
+            logger.info("PDF extraction completed for '%s', extracted %d characters", filename, len(raw_extracted_text))
+        except Exception as e:
+            logger.warning("Failed to extract text from PDF '%s': %s", filename, e)
             
     if not mrz1 and not mrz2 and raw_extracted_text:
         mrz1, mrz2 = extract_mrz_lines_from_text(raw_extracted_text)
