@@ -54,8 +54,8 @@
 1. **Switch to:** Scenario #5 (Case 5: Biometric Impersonation / Sibling Lookalike).
 2. **Key Talking Points:**
    - *"In this scenario, the physical passport is 100% genuine! An officer relying solely on document scanning would clear this passenger. But look at our 1:1 Biometric Verification HUD."*
-   - Click **"Toggle 68-Point Facial Landmarks"**:
-     - *"The system extracts facial geometry between the passport photo and the live checkpoint webcam. Cosine similarity drops to 42.1%, well below our 75.0% threshold."*
+   - Click **"Toggle Facial Landmarks HUD"**:
+     - *"The system extracts localized facial structure and HOG gradient feature embeddings between the passport photo and the live checkpoint webcam. Cosine similarity drops to 42.1%, well below our 75.0% threshold."*
    - Point to the **Risk Breakdown Card**:
      - *"Notice that the score of 82/100 is not a magical guess. The officer sees exactly: Face Impersonation (+40) + Baseline Confidence (+12) + Travel Alert (+30)."*
    - Click the **"Speaker / Audio Briefing"** icon to demonstrate hands-free text-to-speech briefing.

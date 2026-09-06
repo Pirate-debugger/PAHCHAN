@@ -62,14 +62,14 @@ class ForensicAnalysisResultSchema(BaseModel):
     summary_notes: List[str] = []
 
 class FaceVerificationResultSchema(BaseModel):
-    match: bool = True
-    similarity: float = 95.0
-    confidence: float = 0.95
+    match: Optional[bool] = None
+    similarity: Optional[float] = None
+    confidence: Optional[float] = None
     threshold: float = 75.0
-    status: str = "MATCH"  # MATCH, MISMATCH, NO_FACE_DETECTED
-    live_detected: bool = True
-    landmarks_detected: bool = True
-    notes: str = "Biometric face match verified."
+    status: str = "NO_LIVE_CAPTURE"  # MATCH, MISMATCH, NO_FACE_DETECTED, NO_LIVE_CAPTURE
+    live_detected: bool = False
+    landmarks_detected: bool = False
+    notes: str = "Biometric face verification skipped or pending live photo capture."
 
 class CrossFieldMismatchSchema(BaseModel):
     field: str
