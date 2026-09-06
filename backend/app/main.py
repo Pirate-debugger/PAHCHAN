@@ -38,12 +38,12 @@ app = FastAPI(
     ]
 )
 
-# Configure Cross-Origin Resource Sharing (CORS) for Vite / React
+# Configure Cross-Origin Resource Sharing (CORS) with explicit origin allow-list
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

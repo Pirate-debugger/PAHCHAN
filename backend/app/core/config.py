@@ -17,7 +17,14 @@ class Settings(BaseSettings):
     # Server configuration
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    CORS_ORIGINS: List[str] = ["*"]
+    # Explicit CORS allow-list for frontend development and production
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174"
+    ]
+    CORS_ALLOW_CREDENTIALS: bool = False
     
     # Authentication (API-Key Gated Write Endpoints)
     API_KEY: str = "pahchan-secret-api-key-2026"
