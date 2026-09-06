@@ -8,7 +8,7 @@ from typing import Dict, Any
 
 from app.database import get_db
 from app.core.security import get_authenticated_operator, AuthenticatedOperator
-from app.services.audit_service import get_audit_logs, record_audit_event
+from app.services.audit_service import get_audit_logs, record_audit_event, verify_audit_chain
 
 router = APIRouter()
 
@@ -23,6 +23,15 @@ async def list_audit_logs(
         "count": len(logs),
         "logs": logs
     }
+
+@router.get("/audit/verify")
+async def verify_ledger(db: Session = Depends(get_db)):
+    """
+    P1.5: Cryptographically walks and verifies the immutable audit hash-chain.
+    Returns ledger integrity status, chain head hash, and flags any tampering.
+    """
+    verification = verify_audit_chain(db)
+    return verification
 
 @router.post("/audit/record")
 async def create_manual_audit_record(

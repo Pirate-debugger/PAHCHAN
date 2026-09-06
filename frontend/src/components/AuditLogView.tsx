@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import type { ScreeningSession } from '../types';
 import { SYNTHETIC_TEST_CASES } from '../data/mockCases';
+import { fetchAuditLogsApi, verifyAuditLedgerApi } from '../services/api';
 import { 
   History, 
   Search, 
   Database, 
   X, 
-  ArrowUpRight 
+  ArrowUpRight,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react';
 
 interface AuditLogViewProps {
@@ -29,20 +32,22 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ sessions, onViewSess
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAction, setFilterAction] = useState<string>('ALL');
   const [dbLogsCount, setDbLogsCount] = useState<number>(0);
+  const [ledgerStatus, setLedgerStatus] = useState<{ valid: boolean; total_records: number; tampered: boolean } | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
 
-  // Fetch SQLite audit logs from FastAPI endpoint if available
+  // Fetch SQLite audit logs & verify cryptographic hash-chain from backend API
   useEffect(() => {
-    fetch('http://localhost:8000/api/v1/audit/logs?limit=50')
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => {
-        if (data && data.logs) {
-          setDbLogsCount(data.logs.length);
-        }
-      })
-      .catch(() => {
-        // Fallback gracefully
-      });
+    fetchAuditLogsApi().then((logs) => {
+      if (logs && logs.length > 0) {
+        setDbLogsCount(logs.length);
+      }
+    });
+
+    verifyAuditLedgerApi().then((status) => {
+      if (status) {
+        setLedgerStatus(status);
+      }
+    });
   }, []);
 
   // Construct realistic enterprise audit timeline from sessions + synthetic lab cases
@@ -104,7 +109,21 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ sessions, onViewSess
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {ledgerStatus && (
+            <span className={`text-[11px] font-mono px-2.5 py-1 rounded border flex items-center gap-1 ${
+              ledgerStatus.tampered
+                ? 'text-rose-700 bg-rose-50 border-rose-200'
+                : 'text-blue-700 bg-blue-50 border-blue-200'
+            }`}>
+              {ledgerStatus.tampered ? (
+                <ShieldAlert className="w-3 h-3 text-rose-600" />
+              ) : (
+                <ShieldCheck className="w-3 h-3 text-blue-600" />
+              )}
+              <span>Chain: <strong>{ledgerStatus.tampered ? 'TAMPER DETECTED' : 'CRYPTOGRAPHICALLY VERIFIED'}</strong></span>
+            </span>
+          )}
           {dbLogsCount > 0 && (
             <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 flex items-center gap-1">
               <Database className="w-3 h-3" />

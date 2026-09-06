@@ -88,6 +88,16 @@ export async function fetchAuditLogsApi(): Promise<any[]> {
   }
 }
 
+export async function verifyAuditLedgerApi(): Promise<{ valid: boolean; total_records: number; tampered: boolean; chain_head?: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/audit/verify`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchWatchlistApi(): Promise<any[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/watchlist?limit=100`);

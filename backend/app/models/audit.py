@@ -20,3 +20,5 @@ class AuditLogModel(Base):
     risk_level = Column(String(16), default="LOW")
     decision = Column(String(32), default="CLEAR_ENTRY")
     event_details_json = Column(Text, nullable=True)
+    previous_hash = Column(String(64), nullable=False, default="0"*64)
+    record_hash = Column(String(64), nullable=False, index=True, default="")

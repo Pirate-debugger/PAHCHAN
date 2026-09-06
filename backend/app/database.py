@@ -40,11 +40,24 @@ def get_db():
         db.close()
 
 def init_database():
-    """Creates all database tables."""
+    """Creates all database tables and verifies schema columns."""
     import app.models.screening  # noqa: F401
     import app.models.audit      # noqa: F401
     import app.models.watchlist  # noqa: F401
     Base.metadata.create_all(bind=engine)
+
+    # Safe column migration for SQLite audit_logs table
+    try:
+        with engine.connect() as conn:
+            cols = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(audit_logs)").fetchall()]
+            if cols:
+                if "previous_hash" not in cols:
+                    conn.exec_driver_sql("ALTER TABLE audit_logs ADD COLUMN previous_hash VARCHAR(64) DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'")
+                if "record_hash" not in cols:
+                    conn.exec_driver_sql("ALTER TABLE audit_logs ADD COLUMN record_hash VARCHAR(64) DEFAULT ''")
+                conn.commit()
+    except Exception:
+        pass
 
 # Ensure tables exist immediately upon database module import
 init_database()
