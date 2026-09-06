@@ -117,7 +117,9 @@ async def execute_full_screening(
             crossfield_mismatch=not cross_doc_result.get("match", True),
             watchlist_hit=False,
             metadata_tampered=forensic_result.get("metadata_anomalous", False),
-            mrz_pass=val_result.get("mrz_checksum_pass", True)
+            mrz_pass=val_result.get("mrz_checksum_pass", True),
+            text_evidence=forensic_result.get("text_evidence"),
+            stamp_evidence=forensic_result.get("stamp_evidence")
         )
 
         # Stage 8: Grounded Explainability

@@ -18,6 +18,8 @@ def calculate_screening_risk(
     watchlist_hit: bool = False,
     metadata_tampered: bool = False,
     mrz_pass: bool = True,
+    text_evidence: Optional[str] = None,
+    stamp_evidence: Optional[str] = None,
     custom_weights: Optional[Dict[str, int]] = None
 ) -> Dict[str, Any]:
     """
@@ -56,7 +58,7 @@ def calculate_screening_risk(
             "points": pts,
             "severity": "critical",
             "description": "Font rasterization irregularity & baseline offset detected in Visual Inspection Zone.",
-            "evidence": "Font weight variance > 0.65 | Compression halo detected around numeric characters."
+            "evidence": text_evidence or "VIZ font weight variance ratio > 4.2 | Re-compression halo detected around characters."
         })
 
     # 3. Stamp / Seal Counterfeit
@@ -70,7 +72,7 @@ def calculate_screening_risk(
             "points": pts,
             "severity": "critical",
             "description": "Template structural similarity (SSIM) failed official checkpoint baseline.",
-            "evidence": "SSIM similarity < 0.50 | Security guilloche pattern broken."
+            "evidence": stamp_evidence or "SSIM similarity failed official checkpoint baseline threshold."
         })
 
     # 4. Face Verification Mismatch or Skipped
