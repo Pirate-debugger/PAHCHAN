@@ -74,11 +74,11 @@ PAHCHAN equips screening officers with **sub-second forensic signals** across 5 
 │                                 PAHCHAN FASTAPI BACKEND (3.0.0)                               │
 ├───────────────────────────────────────┬───────────────────────────────────────────────────────┤
 │ Core Services:                        │ Forensic Engines:                                     │
-│  • OCR & Field Extraction (EasyOCR)   │  • Error Level Analysis (PIL / NumPy)                 │
+│  • OCR & Field Extraction (PyPDF)     │  • Error Level Analysis (PIL / NumPy)                 │
 │  • ICAO Doc 9303 Checksum Engine      │  • Sobel Edge Discontinuity Gradient (OpenCV)         │
 │  • Cross-Document Normalizer          │  • SSIM Stamp Structural Matching (Scikit-Image)       │
 │  • Additive Risk & Explainability     │  • EXIF / XMP Metadata Signature Inspector            │
-│  • Audit & Report Generation          │  • Biometric Face Embedding Match (OpenCV / Cosine)   │
+│  • Audit & Report Generation          │  • Biometric Face Embedding Match (HOG / Cosine)      │
 └───────────────────────────────────────┴───────────────────────────────────────────────────────┘
                                                │
                                                ▼
@@ -95,10 +95,10 @@ PAHCHAN equips screening officers with **sub-second forensic signals** across 5 
 | Layer | Technologies | Key Libraries / Frameworks |
 | :--- | :--- | :--- |
 | **Backend** | Python 3.14+ | FastAPI, Pydantic v2, SQLAlchemy 2.0, Uvicorn, Aiofiles |
-| **Computer Vision** | OpenCV 5.0, Pillow 12.3 | NumPy, SciPy, Scikit-Image, PyPDF, EasyOCR |
+| **Computer Vision & Forensics** | OpenCV 5.0, Pillow 12.3 | NumPy, SciPy, Scikit-Image, PyPDF, RapidFuzz |
 | **Frontend** | TypeScript, React 19 | Vite 8, Tailwind CSS, Lucide React, Recharts |
 | **Database** | Relational SQL | SQLite3 (embedded zero-config) / PostgreSQL-ready |
-| **Test Suite** | Pytest, TypeScript | 18 Automated Pytest unit tests, Oxlint |
+| **Test Suite** | Pytest, TypeScript | 28+ Automated Pytest unit & integration tests, Oxlint |
 
 ---
 

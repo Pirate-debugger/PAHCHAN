@@ -4,10 +4,15 @@ Security utilities: File validation, MIME inspection, SHA-256 hashing, filename 
 
 import hashlib
 import re
+import io
 from typing import Tuple, Optional
+from PIL import Image
 from fastapi import HTTPException, UploadFile, Security, status
 from fastapi.security.api_key import APIKeyHeader
 from app.core.config import settings
+
+# Enforce decompression bomb ceiling (25 megapixels)
+Image.MAX_IMAGE_PIXELS = 25_000_000
 
 api_key_header = APIKeyHeader(name=settings.API_KEY_NAME, auto_error=False)
 
@@ -73,6 +78,27 @@ async def validate_upload_file(file: UploadFile) -> Tuple[bytes, str]:
             status_code=415,
             detail="Unsupported file format. Please upload JPEG, PNG, WebP, SVG, or PDF."
         )
+
+    # Protect against decompression bomb attacks
+    if not contents.startswith(b"%PDF") and not (contents.startswith(b"<svg") or b"<svg" in contents[:100]):
+        try:
+            with Image.open(io.BytesIO(contents)) as img:
+                if hasattr(img, "size"):
+                    pixels = img.size[0] * img.size[1]
+                    if pixels > Image.MAX_IMAGE_PIXELS:
+                        raise HTTPException(
+                            status_code=413,
+                            detail=f"Image dimensions exceed maximum allowed pixels ({Image.MAX_IMAGE_PIXELS})."
+                        )
+        except HTTPException:
+            raise
+        except Image.DecompressionBombError:
+            raise HTTPException(
+                status_code=413,
+                detail="Payload Too Large: Image exceeds decompression pixel ceiling (decompression bomb protection)."
+            )
+        except Exception:
+            pass
         
     file_hash = compute_sha256(contents)
     return contents, file_hash

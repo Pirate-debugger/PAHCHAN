@@ -32,9 +32,9 @@ PAHCHAN is engineered as a decoupled, multi-tier forensic screening workstation 
 +-----------------------+   +-----------------------+   +---------------------+
 |   FORENSICS ENGINE    |   |    DOCUMENT ENGINE    |   |  BIOMETRIC ENGINE   |
 | - Error Level (ELA)   |   | - ICAO Doc 9303 Mod10 |   | - Face Mesh & Crop  |
-| - Sobel Edge Cut Dis. |   | - Chronological Date  |   | - 68-Point Geometry |
-| - Noise High-Pass     |   | - Visual vs MRZ Cross |   | - Cosine Distance   |
-| - EXIF/XMP Metadata   |   | - Cross-Doc Matcher   |   | - Anti-Spoof Metric |
+| - Sobel Edge Cut Dis. |   | - Chronological Date  |   | - HOG Gradients 512 |
+| - Noise High-Pass     |   | - Visual vs MRZ Cross |   | - Cosine Similarity |
+| - EXIF/XMP Metadata   |   | - Cross-Doc Matcher   |   | - Fail-Closed Logic |
 +-----------------------+   +-----------------------+   +---------------------+
        |                               |                               |
        +-------------------------------+-------------------------------+

@@ -10,10 +10,10 @@ PAHCHAN protects national borders, immigration checkpoints, and sensitive docume
 
 | Threat Vector | Real-World Attack Scenario | PAHCHAN Countermeasure |
 |---|---|---|
-| **Facial Impersonation** | Presenter carries genuine passport of a lookalike or sibling | 1:1 Cosine Distance matching with 68-point facial geometry and landmark alignment |
+| **Facial Impersonation** | Presenter carries genuine passport of a lookalike or sibling | 1:1 Cosine Similarity matching with 512-dimensional HOG gradient feature embeddings and facial landmark contrast validation (fail-closed on missing live capture) |
 | **Photo Splicing** | Original photograph replaced with imposter's photo | Error Level Analysis (ELA) + Sobel boundary cut discontinuity detection |
 | **MRZ Number Forgery** | Altered passport number or birthdate in visual zone | ICAO Doc 9303 7-3-1 modulo-10 check digit math validation |
-| **Counterfeit Stamp** | Fake immigration entry/exit stamp applied to passport page | Structural Similarity Index (SSIM) + Ink spectrum distribution analysis |
+| **Counterfeit Stamp** | Fake immigration entry/exit stamp applied to passport page | Structural Similarity Index (SSIM) template comparison against checkpoint reference stamp baselines |
 | **Expired Travel Document** | Expired validity presented with modified visual year | Chronological consistency checks comparing current date to MRZ expiry |
 | **Watchlist Evader** | Flagged individual on INTERPOL or NIA alert bulletin | Integrated local intelligence watchlist matching with instant alert |
 
@@ -26,11 +26,11 @@ All document uploads are processed through a hardened security boundary:
    - Files are validated against magic byte headers, preventing executable injection masquerading as images.
    - Allowed formats: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`.
 2. **File Size Clamping:**
-   - Strict 10MB payload ceiling prevents denial-of-service (DoS) via memory exhaustion.
+   - Strict 15MB payload ceiling prevents denial-of-service (DoS) via memory exhaustion.
 3. **Path Traversal Prevention:**
    - File paths are not read directly from client input. Uploaded buffers are held in memory or given synthetic UUID identifiers before processing.
-4. **Memory Safety:**
-   - Images are decoded via Pillow/OpenCV with decompression bomb protection enabled (`Image.MAX_IMAGE_PIXELS = 25000000`).
+4. **Memory Safety & Decompression Bomb Protection:**
+   - Images are decoded via Pillow/OpenCV with active decompression bomb protection enabled (`Image.MAX_IMAGE_PIXELS = 25_000_000`), gracefully catching `DecompressionBombError` with HTTP 413.
 
 ---
 
@@ -50,7 +50,7 @@ In accordance with India's **Digital Personal Data Protection Act (DPDPA 2023)**
 1. **Purpose Limitation:** Identity data ingested into PAHCHAN is utilized exclusively for screening and checkpoint clearance verification.
 2. **No External Cloud Leakage:** All OCR, facial comparison, and forensic processing runs 100% locally on-premise or edge edge-compute hardware. No sensitive identity documents are transmitted to third-party public cloud APIs.
 3. **Data Minimization:** Raw biometric embeddings are evaluated in volatile RAM and are not persisted as raw vectors in the database.
-4. **Role-Based Access Control (RBAC):** Only authenticated operators with assigned checkpoint badge IDs can initiate screenings or sign off on dossiers.
+4. **API-Key Gated Access Control:** Write endpoints (`/screenings`, `PUT /risk/weights`, `POST /audit/record`) require authenticated `X-API-Key` headers. The operator identity is securely derived from the authenticated caller rather than unverified client form input.
 
 ---
 
