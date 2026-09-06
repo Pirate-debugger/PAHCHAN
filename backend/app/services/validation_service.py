@@ -186,3 +186,259 @@ def parse_and_validate_td3(line1: str, line2: str) -> Dict[str, Any]:
             "gender": gender
         }
     }
+
+def parse_and_validate_td1(line1: str, line2: str, line3: str) -> Dict[str, Any]:
+    """
+    P2.2: Parses and validates a 3-line 30-character ID Card MRZ (TD1) per ICAO Doc 9303.
+    Line 1: Document Type, Issuing State, Document Number + Check Digit, Optional Data
+    Line 2: DOB + Check, Sex, Expiry + Check, Nationality, Optional Data, Composite Check
+    Line 3: Holder Primary Identifier / Name
+    """
+    issues: List[str] = []
+    l1 = (line1.strip() + "<" * 30)[:30]
+    l2 = (line2.strip() + "<" * 30)[:30]
+    l3 = (line3.strip() + "<" * 30)[:30]
+
+    doc_type = l1[:2].replace("<", "")
+    issuing_country = l1[2:5].replace("<", "")
+
+    # Document Number (indices 5..13, check digit at 14)
+    doc_number = l1[5:14].replace("<", "")
+    doc_check_str = l1[14]
+    calc_doc_check = compute_mrz_checksum(l1[5:14])
+    is_doc_valid = (doc_check_str.isdigit() and calc_doc_check == int(doc_check_str))
+    if not is_doc_valid:
+        issues.append(f"TD1 Document Number Checksum Mismatch: Calculated {calc_doc_check}, found {doc_check_str}")
+
+    # Date of Birth (Line 2 indices 0..5, check digit at 6)
+    dob_raw = l2[:6]
+    dob_check_str = l2[6]
+    calc_dob_check = compute_mrz_checksum(dob_raw)
+    is_dob_valid = (dob_check_str.isdigit() and calc_dob_check == int(dob_check_str))
+    dob_iso, is_dob_cal = parse_mrz_date(dob_raw, is_expiry=False)
+    if not is_dob_valid:
+        issues.append(f"TD1 DOB Checksum Mismatch: Calculated {calc_dob_check}, found {dob_check_str}")
+    if not is_dob_cal:
+        issues.append(f"TD1 DOB specifies impossible calendar date: {dob_raw}")
+
+    # Gender (Line 2 index 7)
+    gender_char = l2[7].upper()
+    gender = "MALE" if gender_char == "M" else "FEMALE" if gender_char == "F" else "UNSPECIFIED"
+
+    # Expiry Date (Line 2 indices 8..13, check digit at 14)
+    exp_raw = l2[8:14]
+    exp_check_str = l2[14]
+    calc_exp_check = compute_mrz_checksum(exp_raw)
+    is_exp_valid = (exp_check_str.isdigit() and calc_exp_check == int(exp_check_str))
+    expiry_iso, is_exp_cal = parse_mrz_date(exp_raw, is_expiry=True)
+    if not is_exp_valid:
+        issues.append(f"TD1 Expiry Checksum Mismatch: Calculated {calc_exp_check}, found {exp_check_str}")
+    if not is_exp_cal:
+        issues.append(f"TD1 Expiry specifies impossible calendar date: {exp_raw}")
+
+    # Expiry check
+    is_expired = False
+    if is_exp_cal and expiry_iso:
+        try:
+            exp_date = datetime.strptime(expiry_iso, "%Y-%m-%d").date()
+            if exp_date < datetime.now(timezone.utc).date():
+                is_expired = True
+                issues.append(f"Travel document is expired (Expired on {expiry_iso})")
+        except Exception:
+            pass
+
+    # Nationality (Line 2 indices 15..17)
+    nationality = l2[15:18].replace("<", "")
+
+    # Composite Master Checksum (Line 2 index 29)
+    # Includes: line 1 (chars 5..30) + line 2 (chars 0..7, 8..15, 18..29)
+    composite_check_str = l2[29]
+    composite_data = l1[5:30] + l2[0:7] + l2[8:15] + l2[18:29]
+    calc_comp_check = compute_mrz_checksum(composite_data)
+    is_comp_valid = (composite_check_str.isdigit() and calc_comp_check == int(composite_check_str))
+    if not is_comp_valid:
+        issues.append(f"TD1 Composite Master Checksum Mismatch: Calculated {calc_comp_check}, found {composite_check_str}")
+
+    # Holder Name (Line 3, 30 chars)
+    name_part = l3.replace("<", " ").strip()
+
+    mrz_checksum_pass = is_doc_valid and is_dob_valid and is_exp_valid and is_comp_valid
+    overall_valid = mrz_checksum_pass and not is_expired and is_dob_cal and is_exp_cal
+
+    return {
+        "format": "TD1",
+        "doc_type": doc_type,
+        "issuing_country": issuing_country,
+        "holder_name": name_part,
+        "doc_number": doc_number,
+        "nationality": nationality,
+        "dob": dob_iso,
+        "gender": gender,
+        "expiry": expiry_iso,
+        "is_expired": is_expired,
+        "is_valid": overall_valid,
+        "mrz_checksum_pass": mrz_checksum_pass,
+        "mrz_details": {
+            "doc_number_valid": is_doc_valid,
+            "dob_valid": is_dob_valid,
+            "expiry_valid": is_exp_valid,
+            "composite_valid": is_comp_valid,
+            "calculated_checksums": {
+                "doc": calc_doc_check,
+                "dob": calc_dob_check,
+                "exp": calc_exp_check,
+                "comp": calc_comp_check
+            },
+            "expected_checksums": {
+                "doc": int(doc_check_str) if doc_check_str.isdigit() else -1,
+                "dob": int(dob_check_str) if dob_check_str.isdigit() else -1,
+                "exp": int(exp_check_str) if exp_check_str.isdigit() else -1,
+                "comp": int(composite_check_str) if composite_check_str.isdigit() else -1
+            }
+        },
+        "issues": issues,
+        "normalized_fields": {
+            "name": name_part,
+            "docNumber": doc_number,
+            "dob": dob_iso,
+            "expiryDate": expiry_iso,
+            "nationality": nationality,
+            "gender": gender
+        }
+    }
+
+def parse_and_validate_td2(line1: str, line2: str) -> Dict[str, Any]:
+    """
+    P2.2: Parses and validates a 2-line 36-character Visa / ID Card MRZ (TD2) per ICAO Doc 9303.
+    Line 1: Document Type, Issuing Country, Holder Name (31 chars)
+    Line 2: Doc Number + Check, Nationality, DOB + Check, Sex, Expiry + Check, Optional, Composite Check
+    """
+    issues: List[str] = []
+    l1 = (line1.strip() + "<" * 36)[:36]
+    l2 = (line2.strip() + "<" * 36)[:36]
+
+    doc_type = l1[:2].replace("<", "")
+    issuing_country = l1[2:5].replace("<", "")
+    name_part = l1[5:].replace("<", " ").strip()
+
+    # Document Number (Line 2 indices 0..8, check digit at 9)
+    doc_number = l2[:9].replace("<", "")
+    doc_check_str = l2[9]
+    calc_doc_check = compute_mrz_checksum(l2[:9])
+    is_doc_valid = (doc_check_str.isdigit() and calc_doc_check == int(doc_check_str))
+    if not is_doc_valid:
+        issues.append(f"TD2 Document Number Checksum Mismatch: Calculated {calc_doc_check}, found {doc_check_str}")
+
+    # Nationality (Line 2 indices 10..12)
+    nationality = l2[10:13].replace("<", "")
+
+    # Date of Birth (Line 2 indices 13..18, check digit at 19)
+    dob_raw = l2[13:19]
+    dob_check_str = l2[19]
+    calc_dob_check = compute_mrz_checksum(dob_raw)
+    is_dob_valid = (dob_check_str.isdigit() and calc_dob_check == int(dob_check_str))
+    dob_iso, is_dob_cal = parse_mrz_date(dob_raw, is_expiry=False)
+    if not is_dob_valid:
+        issues.append(f"TD2 DOB Checksum Mismatch: Calculated {calc_dob_check}, found {dob_check_str}")
+    if not is_dob_cal:
+        issues.append(f"TD2 DOB specifies impossible calendar date: {dob_raw}")
+
+    # Gender (Line 2 index 20)
+    gender_char = l2[20].upper()
+    gender = "MALE" if gender_char == "M" else "FEMALE" if gender_char == "F" else "UNSPECIFIED"
+
+    # Expiry Date (Line 2 indices 21..26, check digit at 27)
+    exp_raw = l2[21:27]
+    exp_check_str = l2[27]
+    calc_exp_check = compute_mrz_checksum(exp_raw)
+    is_exp_valid = (exp_check_str.isdigit() and calc_exp_check == int(exp_check_str))
+    expiry_iso, is_exp_cal = parse_mrz_date(exp_raw, is_expiry=True)
+    if not is_exp_valid:
+        issues.append(f"TD2 Expiry Checksum Mismatch: Calculated {calc_exp_check}, found {exp_check_str}")
+    if not is_exp_cal:
+        issues.append(f"TD2 Expiry specifies impossible calendar date: {exp_raw}")
+
+    is_expired = False
+    if is_exp_cal and expiry_iso:
+        try:
+            exp_date = datetime.strptime(expiry_iso, "%Y-%m-%d").date()
+            if exp_date < datetime.now(timezone.utc).date():
+                is_expired = True
+                issues.append(f"Travel document is expired (Expired on {expiry_iso})")
+        except Exception:
+            pass
+
+    # Composite Master Checksum (Line 2 index 35)
+    # Includes: line 2 (chars 0..10, 13..20, 21..35)
+    composite_check_str = l2[35]
+    composite_data = l2[:10] + l2[13:20] + l2[21:35]
+    calc_comp_check = compute_mrz_checksum(composite_data)
+    is_comp_valid = (composite_check_str.isdigit() and calc_comp_check == int(composite_check_str))
+    if not is_comp_valid:
+        issues.append(f"TD2 Composite Master Checksum Mismatch: Calculated {calc_comp_check}, found {composite_check_str}")
+
+    mrz_checksum_pass = is_doc_valid and is_dob_valid and is_exp_valid and is_comp_valid
+    overall_valid = mrz_checksum_pass and not is_expired and is_dob_cal and is_exp_cal
+
+    return {
+        "format": "TD2",
+        "doc_type": doc_type,
+        "issuing_country": issuing_country,
+        "holder_name": name_part,
+        "doc_number": doc_number,
+        "nationality": nationality,
+        "dob": dob_iso,
+        "gender": gender,
+        "expiry": expiry_iso,
+        "is_expired": is_expired,
+        "is_valid": overall_valid,
+        "mrz_checksum_pass": mrz_checksum_pass,
+        "mrz_details": {
+            "doc_number_valid": is_doc_valid,
+            "dob_valid": is_dob_valid,
+            "expiry_valid": is_exp_valid,
+            "composite_valid": is_comp_valid,
+            "calculated_checksums": {
+                "doc": calc_doc_check,
+                "dob": calc_dob_check,
+                "exp": calc_exp_check,
+                "comp": calc_comp_check
+            },
+            "expected_checksums": {
+                "doc": int(doc_check_str) if doc_check_str.isdigit() else -1,
+                "dob": int(dob_check_str) if dob_check_str.isdigit() else -1,
+                "exp": int(exp_check_str) if exp_check_str.isdigit() else -1,
+                "comp": int(composite_check_str) if composite_check_str.isdigit() else -1
+            }
+        },
+        "issues": issues,
+        "normalized_fields": {
+            "name": name_part,
+            "docNumber": doc_number,
+            "dob": dob_iso,
+            "expiryDate": expiry_iso,
+            "nationality": nationality,
+            "gender": gender
+        }
+    }
+
+def parse_and_validate_mrz(lines: List[str]) -> Dict[str, Any]:
+    """
+    Auto-detects and validates ICAO Doc 9303 MRZ format (TD1, TD2, TD3).
+    - TD1: 3 lines x 30 characters (National ID cards)
+    - TD2: 2 lines x 36 characters (Official travel ID / visas)
+    - TD3: 2 lines x 44 characters (Passports)
+    """
+    clean_lines = [l.strip() for l in lines if l.strip()]
+    if len(clean_lines) >= 3 and all(len(l) <= 32 for l in clean_lines[:3]):
+        return parse_and_validate_td1(clean_lines[0], clean_lines[1], clean_lines[2])
+    elif len(clean_lines) >= 2:
+        l1, l2 = clean_lines[0], clean_lines[1]
+        if max(len(l1), len(l2)) <= 38:
+            return parse_and_validate_td2(l1, l2)
+        else:
+            return parse_and_validate_td3(l1, l2)
+    elif len(clean_lines) == 1:
+        return parse_and_validate_mrz(clean_lines[0].splitlines())
+    return parse_and_validate_td3("", "")
+

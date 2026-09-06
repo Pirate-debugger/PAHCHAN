@@ -48,3 +48,64 @@ def test_expired_document_detection():
     
     assert res["is_expired"] is True
     assert any("expired" in issue.lower() for issue in res["issues"])
+
+def test_td1_genuine_id_card_parsing():
+    """P2.2: Verifies 3-line 30-character TD1 ID Card MRZ parsing and cryptographic check digits."""
+    from app.services.validation_service import parse_and_validate_td1
+    l1 = "I<INDD1234567<7<<<<<<<<<<<<<<<"
+    l2 = "9001011M3001019IND<<<<<<<<<<<2"
+    l3 = "SHARMA<<RAHUL<<<<<<<<<<<<<<<<<"
+    res = parse_and_validate_td1(l1, l2, l3)
+
+    assert res["format"] == "TD1"
+    assert res["holder_name"] == "SHARMA  RAHUL"
+    assert res["doc_number"] == "D1234567"
+    assert res["nationality"] == "IND"
+    assert res["dob"] == "1990-01-01"
+    assert res["gender"] == "MALE"
+    assert res["expiry"] == "2030-01-01"
+    assert res["mrz_checksum_pass"] is True
+    assert res["is_valid"] is True
+
+def test_td2_genuine_visa_parsing():
+    """P2.2: Verifies 2-line 36-character TD2 Travel Card / Visa MRZ parsing and checksums."""
+    from app.services.validation_service import parse_and_validate_td2
+    l1 = "V<INDSHARMA<<RAHUL<<<<<<<<<<<<<<<<<<"
+    l2 = "V9876543<1IND9205107F2905109<<<<<<<0"
+    res = parse_and_validate_td2(l1, l2)
+
+    assert res["format"] == "TD2"
+    assert res["holder_name"] == "SHARMA  RAHUL"
+    assert res["doc_number"] == "V9876543"
+    assert res["nationality"] == "IND"
+    assert res["dob"] == "1992-05-10"
+    assert res["gender"] == "FEMALE"
+    assert res["expiry"] == "2029-05-10"
+    assert res["mrz_checksum_pass"] is True
+    assert res["is_valid"] is True
+
+def test_auto_detect_mrz_format():
+    """P2.2: Auto-detects TD1, TD2, and TD3 based on line count and character length."""
+    from app.services.validation_service import parse_and_validate_mrz
+    # TD1: 3 lines of 30 chars
+    td1_res = parse_and_validate_mrz([
+        "I<INDD1234567<7<<<<<<<<<<<<<<<",
+        "9001011M3001019IND<<<<<<<<<<<2",
+        "SHARMA<<RAHUL<<<<<<<<<<<<<<<<<"
+    ])
+    assert td1_res["format"] == "TD1"
+
+    # TD2: 2 lines of 36 chars
+    td2_res = parse_and_validate_mrz([
+        "V<INDSHARMA<<RAHUL<<<<<<<<<<<<<<<<<<",
+        "V9876543<1IND9205107F2905109<<<<<<<0"
+    ])
+    assert td2_res["format"] == "TD2"
+
+    # TD3: 2 lines of 44 chars
+    td3_res = parse_and_validate_mrz([
+        "P<INDKUMAR<<RAHUL<<<<<<<<<<<<<<<<<<<<<<<<<<<",
+        "Z4819203<0IND0008154M3008155<<<<<<<<<<<<<<00"
+    ])
+    assert td3_res["format"] == "TD3"
+
