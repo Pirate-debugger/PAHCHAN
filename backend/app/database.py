@@ -43,6 +43,7 @@ def init_database():
     """Creates all database tables."""
     import app.models.screening  # noqa: F401
     import app.models.audit      # noqa: F401
+    import app.models.watchlist  # noqa: F401
     Base.metadata.create_all(bind=engine)
 
 # Ensure tables exist immediately upon database module import

@@ -87,3 +87,39 @@ export async function fetchAuditLogsApi(): Promise<any[]> {
     return [];
   }
 }
+
+export async function fetchWatchlistApi(): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/watchlist?limit=100`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.records || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addWatchlistRecordApi(record: any): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/watchlist`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': API_KEY,
+      },
+      body: JSON.stringify({
+        full_name: record.fullName,
+        doc_number: record.docNumber,
+        nationality: record.nationality || 'IND',
+        dob: record.dob || '1990-01-01',
+        risk_category: record.riskCategory,
+        flagged_by: record.flaggedBy || 'SSB Intelligence',
+        severity: record.severity || 'CRITICAL',
+        alert_notes: record.alertNotes
+      })
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

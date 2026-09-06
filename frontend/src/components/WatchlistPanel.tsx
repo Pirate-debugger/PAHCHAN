@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { WatchlistRecord } from '../types';
 import { MOCK_WATCHLIST_RECORDS } from '../data/mockCases';
+import { fetchWatchlistApi, addWatchlistRecordApi } from '../services/api';
 import { 
   Database, 
   Search, 
   Plus, 
   ShieldAlert, 
   CheckCircle,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 
 interface WatchlistPanelProps {
@@ -20,8 +22,29 @@ export const WatchlistPanel: React.FC<WatchlistPanelProps> = ({
   currentHolderName
 }) => {
   const [records, setRecords] = useState<WatchlistRecord[]>(MOCK_WATCHLIST_RECORDS);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Load from backend API
+  const loadRecords = async () => {
+    setIsLoading(true);
+    try {
+      const data = await fetchWatchlistApi();
+      if (data && data.length > 0) {
+        setRecords(data);
+      }
+    } catch {
+      // Keep existing/mock records on network failure
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRecords();
+  }, []);
 
   // New record form state
   const [newName, setNewName] = useState('');
@@ -36,10 +59,11 @@ export const WatchlistPanel: React.FC<WatchlistPanelProps> = ({
       r.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddRecord = (e: React.FormEvent) => {
+  const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName || !newDocNum) return;
+    if (!newName || !newDocNum || isSubmitting) return;
 
+    setIsSubmitting(true);
     const newRecord: WatchlistRecord = {
       id: `W-SSB-${Date.now().toString().slice(-4)}`,
       fullName: newName.toUpperCase(),
@@ -53,11 +77,18 @@ export const WatchlistPanel: React.FC<WatchlistPanelProps> = ({
       dateAdded: new Date().toISOString().split('T')[0]
     };
 
-    setRecords([newRecord, ...records]);
-    setShowAddModal(false);
-    setNewName('');
-    setNewDocNum('');
-    setNewNotes('');
+    try {
+      await addWatchlistRecordApi(newRecord);
+      setRecords((prev) => [newRecord, ...prev]);
+    } catch {
+      setRecords((prev) => [newRecord, ...prev]);
+    } finally {
+      setIsSubmitting(false);
+      setShowAddModal(false);
+      setNewName('');
+      setNewDocNum('');
+      setNewNotes('');
+    }
   };
 
   const isCurrentHolderFlagged = records.some(
@@ -87,13 +118,24 @@ export const WatchlistPanel: React.FC<WatchlistPanelProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium flex items-center space-x-1.5 transition-colors shadow-sm flex-shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Suspect</span>
-        </button>
+        <div className="flex items-center space-x-2 flex-shrink-0">
+          <button
+            onClick={loadRecords}
+            disabled={isLoading}
+            className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center space-x-1.5 transition-colors border border-slate-700"
+            title="Sync with intelligence database"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-400' : ''}`} />
+            <span>Sync DB</span>
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium flex items-center space-x-1.5 transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Suspect</span>
+          </button>
+        </div>
       </div>
 
       {/* Active Screening Context Match Indicator */}

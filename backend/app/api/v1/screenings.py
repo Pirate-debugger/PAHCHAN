@@ -17,6 +17,7 @@ from app.services.validation_service import parse_and_validate_td3
 from app.services.forensics_service import run_comprehensive_forensics
 from app.services.face_service import verify_biometric_face
 from app.services.crossdoc_service import cross_validate_documents
+from app.services.watchlist_service import search_watchlist
 from app.services.risk_service import calculate_screening_risk
 from app.services.explainability_service import generate_explainability_dossier
 from app.services.report_service import generate_screening_report
@@ -103,6 +104,12 @@ async def execute_full_screening(
                 doc2_label="Attached Visa Sticker"
             )
 
+        # Stage 6.5: Intelligence Watchlist Matching
+        holder_name = extracted_fields.get("name") or val_result.get("holder_name")
+        doc_num = extracted_fields.get("docNumber") or val_result.get("doc_number")
+        watchlist_match = search_watchlist(db=db, name=holder_name, doc_number=doc_num)
+        watchlist_hit = bool(watchlist_match and watchlist_match.get("hit", False))
+
         # Stage 7: Deterministic Explainable Risk Engine
         is_face_mismatch = (face_result.get("match") is False)
         is_face_skipped = (face_result.get("status") == "NO_LIVE_CAPTURE" or face_result.get("match") is None)
@@ -115,7 +122,7 @@ async def execute_full_screening(
             face_skipped=is_face_skipped,
             is_expired=val_result.get("is_expired", False),
             crossfield_mismatch=not cross_doc_result.get("match", True),
-            watchlist_hit=False,
+            watchlist_hit=watchlist_hit,
             metadata_tampered=forensic_result.get("metadata_anomalous", False),
             mrz_pass=val_result.get("mrz_checksum_pass", True),
             text_evidence=forensic_result.get("text_evidence"),
@@ -144,6 +151,7 @@ async def execute_full_screening(
             "forensics": forensic_result,
             "face_verification": face_result,
             "cross_field": cross_doc_result,
+            "watchlist_hit": watchlist_match.get("record") if watchlist_hit else None,
             "risk": risk_result
         }
 
