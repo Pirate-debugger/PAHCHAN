@@ -1,32 +1,26 @@
 import React, { useState } from 'react';
 import type { DocumentFields, ValidationResult, CrossFieldResult } from '../types';
 import { 
-  FileText, 
-  CheckCircle, 
+  CheckCircle2, 
   AlertTriangle, 
-  User, 
-  Calendar, 
-  Globe, 
-  Hash, 
-  Tag, 
-  Clock,
-  Calculator,
-  X
+  Calculator, 
+  X, 
+  ArrowUpRight
 } from 'lucide-react';
-import { sound } from '../utils/sound';
 
 interface DocumentDetailsCardProps {
   fields: DocumentFields;
   validation: ValidationResult;
-  crossField: CrossFieldResult;
+  crossField?: CrossFieldResult;
+  onSelectFieldRegion?: (regionId: string) => void;
 }
 
 export const DocumentDetailsCard: React.FC<DocumentDetailsCardProps> = ({
   fields,
   validation,
-  crossField
+  crossField,
+  onSelectFieldRegion
 }) => {
-  const [hoveredField, setHoveredField] = useState<string | null>(null);
   const [showMathModal, setShowMathModal] = useState<boolean>(false);
 
   const conf = fields.fieldConfidences || {
@@ -38,319 +32,263 @@ export const DocumentDetailsCard: React.FC<DocumentDetailsCardProps> = ({
     gender: 0.989
   };
 
-  const getConfBadge = (val?: number) => {
-    const p = val ? (val * 100).toFixed(1) : '98.5';
-    return (
-      <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-950/80 text-cyan-300 border border-blue-800/60 ml-1.5">
-        {p}% OCR
-      </span>
-    );
-  };
-
-  const mrzDetails = validation.mrzDetails || {
-    docNumberValid: true,
-    dobValid: true,
-    expiryValid: true,
-    compositeValid: true
-  };
-
-  const mrz1 = fields.mrzLine1 || 'P<INDKUMAR<<ARAVIND<<<<<<<<<<<<<<<<<<<<<<<<<';
-  const mrz2 = fields.mrzLine2 || 'Z4819203<0IND0008154M3008155<<<<<<<<<<<<<<00';
+  const fieldItems = [
+    { label: 'Full Name', value: fields.name, confidence: conf.name, regionId: 'reg-name' },
+    { label: 'Document Number', value: fields.docNumber, confidence: conf.docNumber, regionId: 'reg-doc-num', isMono: true },
+    { label: 'Nationality', value: fields.nationality, confidence: conf.nationality, regionId: 'reg-nationality' },
+    { label: 'Date of Birth', value: fields.dob, confidence: conf.dob, regionId: 'reg-dob', isExpiredWarning: false },
+    { 
+      label: 'Expiration Date', 
+      value: fields.expiryDate, 
+      confidence: conf.expiryDate, 
+      regionId: 'reg-expiry',
+      isExpiredWarning: validation.isExpired 
+    },
+    { label: 'Gender', value: fields.gender, confidence: conf.gender, regionId: 'reg-gender' },
+  ];
 
   return (
-    <div className="bg-[#0f172a] rounded-2xl border border-slate-800 shadow-sm p-4 space-y-4">
+    <div className="bg-white rounded-lg border border-slate-200 shadow-subtle p-4 space-y-4 text-xs">
+      
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-        <div className="flex items-center space-x-2.5">
-          <div className="p-2 bg-blue-500/10 text-cyan-400 rounded-xl border border-blue-500/20">
-            <FileText className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                PAHCHAN OCR &amp; FIELD EXTRACTION
-              </h3>
-              <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.2 rounded border border-slate-700">
-                ICAO Doc 9303
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400">Multi-engine structured parsing with confidence ratings</p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => {
-              sound.click();
-              setShowMathModal(true);
-            }}
-            className="hidden sm:flex items-center space-x-1 text-[10.5px] font-mono text-cyan-400 hover:text-cyan-300 bg-cyan-950/40 hover:bg-cyan-950/70 px-2 py-1 rounded-lg border border-cyan-800/60 transition-colors"
-          >
-            <Calculator className="w-3 h-3" />
-            <span>Inspect Math</span>
-          </button>
-
-          <span
-            className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-              validation.mrzChecksumPass && !validation.isExpired
-                ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
-                : 'bg-rose-950/80 text-rose-300 border border-rose-800'
-            }`}
-          >
-            {validation.mrzChecksumPass && !validation.isExpired ? '✓ Valid Checksums' : '⚠️ Checksum Failure'}
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+            Optical Extraction
           </span>
+          <h2 className="text-sm font-bold text-slate-900">
+            Extracted Fields &amp; Validation
+          </h2>
         </div>
+
+        <button
+          onClick={() => setShowMathModal(true)}
+          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium flex items-center gap-1.5 transition-colors"
+        >
+          <Calculator className="w-3.5 h-3.5 text-blue-600" />
+          <span>ICAO 7-3-1 Math</span>
+        </button>
       </div>
 
-      {/* Structured Key Details Grid */}
-      <div className="grid grid-cols-2 gap-2.5">
-        {/* Full Name */}
-        <div 
-          onMouseEnter={() => setHoveredField('name')}
-          onMouseLeave={() => setHoveredField(null)}
-          className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between cursor-pointer ${
-            hoveredField === 'name' ? 'bg-[#15233e] border-cyan-500 shadow-md shadow-cyan-500/10' : 'bg-[#090d16] border-slate-800'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1 font-mono">
-              <User className="w-3 h-3 text-cyan-400" /> FULL NAME
-            </span>
-            {getConfBadge(conf.name)}
-          </div>
-          <span className="text-xs font-bold text-white block truncate uppercase">{fields.name || 'N/A'}</span>
-        </div>
+      {/* Extracted Fields Table with Traceability */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-slate-50 text-slate-500 font-semibold text-[11px] border-b border-slate-200">
+            <tr>
+              <th className="py-2 px-3">Field</th>
+              <th className="py-2 px-3">Extracted Value</th>
+              <th className="py-2 px-3">Confidence</th>
+              <th className="py-2 px-3 text-right">Source Trace</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {fieldItems.map((item, idx) => (
+              <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                <td className="py-2.5 px-3 font-medium text-slate-500">
+                  {item.label}
+                </td>
+                <td className="py-2.5 px-3 font-semibold text-slate-900">
+                  <span className={item.isMono ? 'font-mono' : ''}>
+                    {item.value}
+                  </span>
+                  {item.isExpiredWarning && (
+                    <span className="ml-2 px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-100 text-rose-800">
+                      EXPIRED
+                    </span>
+                  )}
+                </td>
+                <td className="py-2.5 px-3">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-slate-100 text-slate-600">
+                    {item.confidence ? `${(item.confidence * 100).toFixed(1)}%` : '98.5%'}
+                  </span>
+                </td>
+                <td className="py-2.5 px-3 text-right">
+                  <button
+                    onClick={() => onSelectFieldRegion && onSelectFieldRegion(item.regionId)}
+                    className="text-[11px] text-blue-600 hover:text-blue-800 hover:underline font-medium inline-flex items-center gap-1"
+                  >
+                    <span>View source</span>
+                    <ArrowUpRight className="w-3 h-3" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-        {/* Document Number */}
-        <div 
-          onMouseEnter={() => setHoveredField('docNumber')}
-          onMouseLeave={() => setHoveredField(null)}
-          className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between cursor-pointer ${
-            hoveredField === 'docNumber' ? 'bg-[#15233e] border-cyan-500 shadow-md shadow-cyan-500/10' : 'bg-[#090d16] border-slate-800'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1 font-mono">
-              <Hash className="w-3 h-3 text-cyan-400" /> DOCUMENT NO.
-            </span>
-            {getConfBadge(conf.docNumber)}
-          </div>
-          <span className="text-xs font-bold text-cyan-400 font-mono block tracking-wider">{fields.docNumber || 'N/A'}</span>
-        </div>
-
-        {/* Nationality */}
-        <div 
-          onMouseEnter={() => setHoveredField('nationality')}
-          onMouseLeave={() => setHoveredField(null)}
-          className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between cursor-pointer ${
-            hoveredField === 'nationality' ? 'bg-[#15233e] border-cyan-500 shadow-md shadow-cyan-500/10' : 'bg-[#090d16] border-slate-800'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1 font-mono">
-              <Globe className="w-3 h-3 text-cyan-400" /> NATIONALITY
-            </span>
-            {getConfBadge(conf.nationality)}
-          </div>
-          <span className="text-xs font-bold text-slate-200 block">{fields.nationality || 'IND'}</span>
-        </div>
-
-        {/* Date of Birth */}
-        <div 
-          onMouseEnter={() => setHoveredField('dob')}
-          onMouseLeave={() => setHoveredField(null)}
-          className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between cursor-pointer ${
-            hoveredField === 'dob' ? 'bg-[#15233e] border-cyan-500 shadow-md shadow-cyan-500/10' : 'bg-[#090d16] border-slate-800'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1 font-mono">
-              <Calendar className="w-3 h-3 text-cyan-400" /> DATE OF BIRTH
-            </span>
-            {getConfBadge(conf.dob)}
-          </div>
-          <span className="text-xs font-bold text-slate-200 block font-mono">{fields.dob || 'N/A'}</span>
-        </div>
-
-        {/* Expiry Date Bar */}
-        <div 
-          onMouseEnter={() => setHoveredField('expiry')}
-          onMouseLeave={() => setHoveredField(null)}
-          className={`p-2.5 rounded-xl border col-span-2 flex items-center justify-between transition-all cursor-pointer ${
-            hoveredField === 'expiry' ? 'bg-[#15233e] border-cyan-500 shadow-md shadow-cyan-500/10' : 'bg-[#090d16] border-slate-800'
-          }`}
-        >
-          <div>
-            <div className="flex items-center space-x-1 mb-0.5">
-              <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1 font-mono">
-                <Clock className="w-3 h-3 text-cyan-400" /> EXPIRY DATE
-              </span>
-              {getConfBadge(conf.expiryDate)}
-            </div>
-            <span className={`text-xs font-bold font-mono ${validation.isExpired ? 'text-rose-400 font-extrabold' : 'text-white'}`}>
-              {fields.expiryDate || 'N/A'}
-            </span>
-          </div>
-
-          <span
-            className={`text-[10.5px] font-bold px-2.5 py-0.5 rounded-md ${
-              validation.isExpired
-                ? 'bg-rose-950/80 text-rose-300 border border-rose-800 animate-pulse'
-                : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
-            }`}
-          >
-            {validation.isExpired ? 'EXPIRED (Invalid for Travel)' : 'ACTIVE / VALID'}
+      {/* ICAO Doc 9303 MRZ Verification Card */}
+      <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="font-semibold text-slate-600 uppercase tracking-wide">
+            ICAO Doc 9303 MRZ Optical Zone
           </span>
-        </div>
-
-        {/* Optional Visa fields if present */}
-        {fields.visaNumber && (
-          <div className="bg-[#090d16] p-2.5 rounded-xl border border-slate-800 col-span-2 flex items-center justify-between">
-            <div>
-              <span className="text-[10px] font-semibold text-amber-400 flex items-center gap-1 mb-0.5 font-mono">
-                <Tag className="w-3 h-3 text-amber-400" /> ATTACHED VISA / PERMIT
-              </span>
-              <span className="text-xs font-bold text-white font-mono">{fields.visaNumber}</span>
-              <span className="text-[10.5px] text-slate-400 ml-2">({fields.visaType || 'E-VISA'})</span>
-            </div>
-            <span className="text-[10px] font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-              {fields.stayDuration || '90 DAYS'}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Raw MRZ Interactive Highlight Box */}
-      <div className="bg-[#070b14] p-3 rounded-xl border border-slate-800 space-y-1.5">
-        <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-          <span className="flex items-center gap-1 font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-            MACHINE READABLE ZONE (MRZ TD3)
-          </span>
-          <span className="text-slate-500">Hover fields above to trace characters</span>
-        </div>
-
-        <div className="font-mono text-xs text-slate-300 bg-black/60 p-2.5 rounded-lg border border-slate-800/80 leading-relaxed tracking-wider break-all select-all">
-          {/* Line 1 */}
-          <div className="mb-0.5">
-            <span className="text-slate-500">P&lt;IND</span>
-            <span className={hoveredField === 'name' ? 'bg-cyan-500 text-black px-0.5 rounded font-extrabold' : ''}>
-              {mrz1.slice(5, 30)}
-            </span>
-            <span className="text-slate-600">{mrz1.slice(30)}</span>
-          </div>
-
-          {/* Line 2 */}
-          <div>
-            <span className={hoveredField === 'docNumber' ? 'bg-cyan-500 text-black px-0.5 rounded font-extrabold' : 'text-cyan-300'}>
-              {mrz2.slice(0, 10)}
-            </span>
-            <span className={hoveredField === 'nationality' ? 'bg-cyan-500 text-black px-0.5 rounded font-extrabold' : 'text-slate-400'}>
-              {mrz2.slice(10, 13)}
-            </span>
-            <span className={hoveredField === 'dob' ? 'bg-cyan-500 text-black px-0.5 rounded font-extrabold' : 'text-emerald-300'}>
-              {mrz2.slice(13, 20)}
-            </span>
-            <span className="text-slate-500">{mrz2.slice(20, 21)}</span>
-            <span className={hoveredField === 'expiry' ? 'bg-cyan-500 text-black px-0.5 rounded font-extrabold' : 'text-amber-300'}>
-              {mrz2.slice(21, 28)}
-            </span>
-            <span className="text-slate-600">{mrz2.slice(28)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ICAO 7-3-1 Modulo 10 Checksum Matrix */}
-      <div className="space-y-2 pt-1 border-t border-slate-800/80">
-        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-          <span>ICAO 7-3-1 Modulo 10 Checksum Matrix</span>
-          <span className="text-cyan-400 font-normal">Annex 9 Compliant</span>
-        </div>
-
-        <div className="grid grid-cols-4 gap-1.5 text-center font-mono text-[10px]">
-          <div className={`p-1.5 rounded-lg border ${mrzDetails.docNumberValid ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300' : 'bg-rose-950/50 border-rose-800 text-rose-300'}`}>
-            <span className="block text-[9px] text-slate-400">DOC NO</span>
-            <span className="font-bold">{mrzDetails.docNumberValid ? 'PASS ✓' : 'FAIL ✗'}</span>
-          </div>
-          <div className={`p-1.5 rounded-lg border ${mrzDetails.dobValid ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300' : 'bg-rose-950/50 border-rose-800 text-rose-300'}`}>
-            <span className="block text-[9px] text-slate-400">DOB</span>
-            <span className="font-bold">{mrzDetails.dobValid ? 'PASS ✓' : 'FAIL ✗'}</span>
-          </div>
-          <div className={`p-1.5 rounded-lg border ${mrzDetails.expiryValid ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300' : 'bg-rose-950/50 border-rose-800 text-rose-300'}`}>
-            <span className="block text-[9px] text-slate-400">EXPIRY</span>
-            <span className="font-bold">{mrzDetails.expiryValid ? 'PASS ✓' : 'FAIL ✗'}</span>
-          </div>
-          <div className={`p-1.5 rounded-lg border ${mrzDetails.compositeValid ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300' : 'bg-rose-950/50 border-rose-800 text-rose-300'}`}>
-            <span className="block text-[9px] text-slate-400">COMPOSITE</span>
-            <span className="font-bold">{mrzDetails.compositeValid ? 'PASS ✓' : 'FAIL ✗'}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Checksum & Consistency Checklist */}
-      <div className="space-y-1 text-xs">
-        <div className="flex items-center justify-between p-2 rounded-lg bg-[#090d16] border border-slate-800">
-          <div className="flex items-center space-x-2">
-            {crossField.match ? (
-              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+            validation.mrzChecksumPass 
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+              : 'bg-rose-50 text-rose-700 border border-rose-200'
+          }`}>
+            {validation.mrzChecksumPass ? (
+              <>
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                <span>Modulo-10 Passed</span>
+              </>
             ) : (
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+              <>
+                <AlertTriangle className="w-3 h-3 text-rose-600" />
+                <span>Checksum Mismatch</span>
+              </>
             )}
-            <span className="text-[11px] text-slate-200 font-medium">Visual Inspection Zone (VIZ) vs MRZ Check</span>
-          </div>
-          <span className={`text-[10px] font-bold font-mono ${crossField.match ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {crossField.match ? 'CONSISTENT' : 'DATA ALTERED'}
           </span>
+        </div>
+
+        {/* Algorithm Status Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+          <div className="p-2 rounded bg-white border border-slate-200">
+            <div className="text-[10px] text-slate-500">Doc Number</div>
+            <div className="flex items-center gap-1 mt-0.5">
+              {validation.mrzDetails?.docNumberValid ? (
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              ) : (
+                <AlertTriangle className="w-3 h-3 text-rose-600" />
+              )}
+              <span className="text-xs font-semibold text-slate-800">
+                {validation.mrzDetails?.docNumberValid ? 'Valid' : 'Mismatch'}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-2 rounded bg-white border border-slate-200">
+            <div className="text-[10px] text-slate-500">DOB Digit</div>
+            <div className="flex items-center gap-1 mt-0.5">
+              {validation.mrzDetails?.dobValid ? (
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              ) : (
+                <AlertTriangle className="w-3 h-3 text-rose-600" />
+              )}
+              <span className="text-xs font-semibold text-slate-800">
+                {validation.mrzDetails?.dobValid ? 'Valid' : 'Mismatch'}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-2 rounded bg-white border border-slate-200">
+            <div className="text-[10px] text-slate-500">Expiry Digit</div>
+            <div className="flex items-center gap-1 mt-0.5">
+              {validation.mrzDetails?.expiryValid ? (
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              ) : (
+                <AlertTriangle className="w-3 h-3 text-rose-600" />
+              )}
+              <span className="text-xs font-semibold text-slate-800">
+                {validation.mrzDetails?.expiryValid ? 'Valid' : 'Mismatch'}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-2 rounded bg-white border border-slate-200">
+            <div className="text-[10px] text-slate-500">Composite</div>
+            <div className="flex items-center gap-1 mt-0.5">
+              {validation.mrzDetails?.compositeValid ? (
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              ) : (
+                <AlertTriangle className="w-3 h-3 text-rose-600" />
+              )}
+              <span className="text-xs font-semibold text-slate-800">
+                {validation.mrzDetails?.compositeValid ? 'Valid' : 'Mismatch'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Monospaced MRZ snippet */}
+        <div className="p-2 bg-slate-900 rounded font-mono text-[11px] text-emerald-400 tracking-widest overflow-x-auto select-all">
+          <div>{fields.mrzLine1 || 'P<INDKUMAR<<ARAVIND<<<<<<<<<<<<<<<<<<<<<<<<<'}</div>
+          <div>{fields.mrzLine2 || 'Z4819203<0IND0008154M3008155<<<<<<<<<<<<<<00'}</div>
         </div>
       </div>
 
-      {/* ICAO Math Inspector Modal */}
+      {/* Cross-Document Consistency Warning (Section 28) */}
+      {crossField && !crossField.match && crossField.mismatches.length > 0 && (
+        <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 space-y-1">
+          <div className="flex items-center gap-1.5 text-amber-800 font-semibold text-xs">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <span>Cross-Document Inconsistency Detected</span>
+          </div>
+          <ul className="text-xs text-amber-900 space-y-0.5 pl-5 list-disc">
+            {crossField.mismatches.map((m, i) => (
+              <li key={i}>
+                <span className="font-semibold">{m.field}:</span> {m.description || `${m.source1} (${m.value1}) vs ${m.source2} (${m.value2})`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* ICAO Modulo-10 7-3-1 Math Inspector Modal */}
       {showMathModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0f172a] border border-slate-700 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center space-x-2">
-                <Calculator className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-sm font-bold text-white font-mono">ICAO Doc 9303 Modulo-10 7-3-1 Arithmetic Breakdown</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white rounded-lg border border-slate-200 shadow-2xl max-w-lg w-full p-5 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Calculator className="w-5 h-5 text-blue-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  ICAO Doc 9303 Check Digit Inspector
+                </h3>
               </div>
               <button 
                 onClick={() => setShowMathModal(false)}
-                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400"
+                className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Every machine-readable travel document encodes self-verifying check digits. Characters [0-9] map to values 0-9, [A-Z] map to 10-35, and fillers (&lt;) map to 0. Repeating weights of <strong>[7, 3, 1]</strong> multiply each character. The sum modulo 10 must match the check digit.
-            </p>
+            <div className="space-y-3 text-xs text-slate-600">
+              <p className="leading-relaxed">
+                ICAO standard TD3 travel documents use a repeating weight sequence <code className="bg-slate-100 px-1 py-0.5 rounded font-mono font-bold text-slate-800">[7, 3, 1, 7, 3, 1...]</code> modulo 10 across key fields:
+              </p>
 
-            <div className="bg-[#080d19] p-3.5 rounded-xl border border-slate-800 space-y-2 font-mono text-xs">
-              <div className="text-cyan-400 font-bold border-b border-slate-800 pb-1">
-                Document Number Formula:
-              </div>
-              <div className="text-slate-300 text-[11px] leading-relaxed">
-                Chars: <span className="text-white font-bold">{mrz2.slice(0, 9)}</span> | Check Digit: <span className="text-cyan-300 font-bold">{mrz2.charAt(9)}</span>
-              </div>
-              <div className="text-slate-400 text-[10px]">
-                Vector Sum: ∑ (char_val × weight) % 10 = Expected Check Digit
-              </div>
-              <div className={`p-2 rounded-lg border text-center font-bold text-xs ${
-                mrzDetails.docNumberValid ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300' : 'bg-rose-950/40 border-rose-800 text-rose-300'
-              }`}>
-                {mrzDetails.docNumberValid ? '✓ Document Number Checksum Verified' : '✗ Checksum Mismatch — Document Altered'}
+              <div className="space-y-2 border border-slate-200 rounded-md p-3 bg-slate-50 font-mono text-[11px]">
+                <div className="flex justify-between border-b border-slate-200 pb-1">
+                  <span className="font-semibold text-slate-700">Document Number:</span>
+                  <span className={validation.mrzDetails?.docNumberValid ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
+                    {validation.mrzDetails?.docNumberValid ? 'Pass (Modulo 10 Valid)' : 'FAIL (Calculated ≠ Expected)'}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 pb-1">
+                  <span className="font-semibold text-slate-700">Date of Birth:</span>
+                  <span className={validation.mrzDetails?.dobValid ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
+                    {validation.mrzDetails?.dobValid ? 'Pass (Modulo 10 Valid)' : 'FAIL (Calculated ≠ Expected)'}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 pb-1">
+                  <span className="font-semibold text-slate-700">Expiration Date:</span>
+                  <span className={validation.mrzDetails?.expiryValid ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
+                    {validation.mrzDetails?.expiryValid ? 'Pass (Modulo 10 Valid)' : 'FAIL (Calculated ≠ Expected)'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-700">Composite Checksum:</span>
+                  <span className={validation.mrzDetails?.compositeValid ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
+                    {validation.mrzDetails?.compositeValid ? 'Pass (Modulo 10 Valid)' : 'FAIL (Calculated ≠ Expected)'}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <button
-              onClick={() => setShowMathModal(false)}
-              className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold"
-            >
-              Close Inspector
-            </button>
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setShowMathModal(false)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-md text-xs font-medium hover:bg-slate-800 transition-colors"
+              >
+                Close Inspector
+              </button>
+            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };

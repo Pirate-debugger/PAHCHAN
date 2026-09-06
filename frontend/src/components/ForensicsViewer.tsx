@@ -4,58 +4,45 @@ import {
   ZoomIn, 
   ZoomOut, 
   RotateCcw, 
-  Layers, 
-  Eye, 
-  EyeOff, 
-  AlertTriangle, 
-  CheckCircle, 
-  Info,
-  Maximize2,
-  Minimize2,
-  Crosshair,
-  SlidersHorizontal
+  Eye 
 } from 'lucide-react';
 import { applyForensicsFilter, type ForensicsFilterMode } from '../utils/forensics';
-import { sound } from '../utils/sound';
 
 interface ForensicsViewerProps {
   documentImageUrl: string;
   tampering: TamperingAnalysis;
   onSelectRegion?: (region: ForensicRegion | null) => void;
   selectedRegion?: ForensicRegion | null;
+  className?: string;
 }
 
 export const ForensicsViewer: React.FC<ForensicsViewerProps> = ({
   documentImageUrl,
   tampering,
   onSelectRegion,
-  selectedRegion
+  selectedRegion,
+  className = ''
 }) => {
   const [filterMode, setFilterMode] = useState<ForensicsFilterMode>('ORIGINAL');
   const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [internalPin, setInternalPin] = useState<ForensicRegion | null>(null);
-  const [showBoundingBoxes, setShowBoundingBoxes] = useState<boolean>(true);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [startPan, setStartPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [showOverlays, setShowOverlays] = useState<boolean>(true);
   const [splitRatio, setSplitRatio] = useState<number>(0.5);
   const [isDraggingSplit, setIsDraggingSplit] = useState<boolean>(false);
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [cursorPos, setCursorPos] = useState<{ x: number; y: number; normX: number; normY: number } | null>(null);
-
-  const activePin = selectedRegion !== undefined ? selectedRegion : internalPin;
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hiddenSourceCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Load image and render filter
+  // Render forensic filter on canvas
   useEffect(() => {
     if (!documentImageUrl) return;
 
-    let cancelled = false;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      if (cancelled) return;
       if (!hiddenSourceCanvasRef.current) {
         hiddenSourceCanvasRef.current = document.createElement('canvas');
       }
@@ -76,380 +63,249 @@ export const ForensicsViewer: React.FC<ForensicsViewerProps> = ({
           splitRatio
         );
       }
-      setIsProcessing(false);
-    };
-    img.onerror = () => {
-      if (!cancelled) setIsProcessing(false);
     };
     img.src = documentImageUrl;
-
-    return () => {
-      cancelled = true;
-    };
-  }, [documentImageUrl, filterMode, tampering.regions, splitRatio]);
+  }, [documentImageUrl, filterMode, splitRatio, tampering.regions]);
 
   const handleZoom = (delta: number) => {
-    sound.click();
-    setZoomLevel((prev) => Math.min(2.5, Math.max(0.8, prev + delta)));
+    setZoomLevel((prev) => Math.max(0.7, Math.min(3.0, prev + delta)));
   };
 
-  const resetZoom = () => {
-    sound.click();
+  const handleResetView = () => {
     setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+    if (onSelectRegion) onSelectRegion(null);
   };
 
-  const focusPreset = (type: 'PORTRAIT' | 'MRZ') => {
-    sound.click();
-    if (type === 'PORTRAIT') {
-      setZoomLevel(1.8);
-    } else {
-      setZoomLevel(1.6);
+  // Mouse pan handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0 && !isDraggingSplit) {
+      setIsPanning(true);
+      setStartPan({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
     }
   };
 
-  const handlePinClick = (region: ForensicRegion) => {
-    sound.click();
-    setInternalPin(region);
-    if (onSelectRegion) {
-      onSelectRegion(region);
-    }
-  };
-
-  const handleMouseMoveCanvas = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const clientX = e.clientX - rect.left;
-    const clientY = e.clientY - rect.top;
-    
-    if (clientX >= 0 && clientX <= rect.width && clientY >= 0 && clientY <= rect.height) {
-      const normX = Math.round((clientX / rect.width) * 100);
-      const normY = Math.round((clientY / rect.height) * 100);
-      setCursorPos({ x: Math.round(clientX), y: Math.round(clientY), normX, normY });
-    } else {
-      setCursorPos(null);
-    }
-
-    if (isDraggingSplit && filterMode === 'SPLIT') {
-      const ratio = Math.max(0.05, Math.min(0.95, clientX / rect.width));
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      setPanOffset({ x: e.clientX - startPan.x, y: e.clientY - startPan.y });
+    } else if (isDraggingSplit && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const ratio = Math.max(0.05, Math.min(0.95, (e.clientX - rect.left) / rect.width));
       setSplitRatio(ratio);
     }
   };
 
-  const filterOptions: Array<{ id: ForensicsFilterMode; label: string; desc: string }> = [
-    { id: 'ORIGINAL', label: 'Normal View', desc: 'Standard passport image' },
-    { id: 'SPLIT', label: 'Curtain Slider', desc: 'Interactive side-by-side wipe between Original & ELA' },
-    { id: 'ELA', label: 'Tamper Heatmap', desc: 'Highlights digital editing & photo replacement' },
-    { id: 'EDGES', label: 'Edge Cuts', desc: 'Detects spliced boundary lines & cutout edges' },
-    { id: 'NOISE', label: 'Noise Texture', desc: 'Checks background paper texture uniformity' },
-    { id: 'SPECTRAL', label: 'Ink Spectrum', desc: 'Analyzes ink contrast & stamp absorption' },
-  ];
+  const handleMouseUp = () => {
+    setIsPanning(false);
+    setIsDraggingSplit(false);
+  };
+
+  const regions = tampering.regions || [];
 
   return (
-    <div 
-      className={`flex flex-col bg-[#0b0f19] rounded-2xl border border-slate-800 shadow-xl overflow-hidden transition-all ${
-        isFullscreen ? 'fixed inset-4 z-50 shadow-2xl' : 'h-full'
-      }`}
-    >
-      {/* Top Toolbar */}
-      <div className="bg-[#0f172a] border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2.5 select-none">
+    <div className={`bg-slate-900 rounded-lg border border-slate-800 shadow-md flex flex-col overflow-hidden text-slate-100 ${className}`}>
+      
+      {/* Top Inspection Stage Toolbar */}
+      <div className="bg-slate-950 px-3 py-2 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
         
-        {/* Clean Filter Tabs */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-          <span className="text-xs font-bold text-slate-300 mr-1.5 flex items-center gap-1.5 font-mono">
-            <Layers className="w-3.5 h-3.5 text-cyan-400" />
-            MICROSCOPE:
-          </span>
-          <div className="flex bg-slate-900/95 p-0.5 rounded-xl border border-slate-800 shadow-inner">
-            {filterOptions.map((opt) => (
-              <button
-                key={opt.id}
-                onClick={() => {
-                  sound.click();
-                  setFilterMode(opt.id);
-                }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                  filterMode === opt.id
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md shadow-blue-500/20'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                }`}
-                title={opt.desc}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* View Controls & Zoom HUD */}
-        <div className="flex items-center space-x-2">
-          
-          {/* Preset Zoom Shortcuts */}
-          <div className="hidden xl:flex items-center space-x-1 bg-slate-900/90 p-0.5 rounded-lg border border-slate-800 text-[11px] font-mono">
-            <button 
-              onClick={() => focusPreset('PORTRAIT')}
-              className="px-2 py-0.5 text-slate-400 hover:text-cyan-300 hover:bg-slate-800 rounded"
-            >
-              Portrait
-            </button>
-            <button 
-              onClick={() => focusPreset('MRZ')}
-              className="px-2 py-0.5 text-slate-400 hover:text-cyan-300 hover:bg-slate-800 rounded"
-            >
-              MRZ
-            </button>
-          </div>
-
-          {/* Bounding Box Toggle */}
+        {/* Left: View Mode Switcher */}
+        <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded border border-slate-800">
           <button
-            onClick={() => {
-              sound.click();
-              setShowBoundingBoxes(!showBoundingBoxes);
-            }}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center space-x-1.5 transition-colors ${
-              showBoundingBoxes
-                ? 'bg-blue-950/70 border-blue-800 text-cyan-300'
-                : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-300'
+            onClick={() => setFilterMode('ORIGINAL')}
+            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+              filterMode === 'ORIGINAL' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
-            {showBoundingBoxes ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">Anomalies</span>
+            Original
+          </button>
+          <button
+            onClick={() => setFilterMode('ELA')}
+            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+              filterMode === 'ELA' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            ELA Heatmap
+          </button>
+          <button
+            onClick={() => setFilterMode('EDGES')}
+            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+              filterMode === 'EDGES' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Edge Gradient
+          </button>
+          <button
+            onClick={() => setFilterMode('SPLIT')}
+            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+              filterMode === 'SPLIT' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Compare (Split)
+          </button>
+        </div>
+
+        {/* Right: Overlays Toggle & Zoom Controls */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowOverlays(!showOverlays)}
+            className={`px-2 py-1 rounded text-[11px] font-medium border transition-colors flex items-center gap-1 ${
+              showOverlays 
+                ? 'bg-blue-950/60 border-blue-700 text-blue-300' 
+                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+            }`}
+          >
+            <Eye className="w-3 h-3" />
+            <span>{showOverlays ? 'Overlays On' : 'Overlays Off'}</span>
           </button>
 
-          {/* Zoom Controls */}
-          <div className="flex items-center bg-slate-900/90 rounded-lg border border-slate-800 text-xs">
+          <div className="flex items-center bg-slate-900 rounded border border-slate-800">
             <button
               onClick={() => handleZoom(-0.2)}
-              className="p-1.5 text-slate-400 hover:text-white"
+              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="px-2 font-mono text-[11px] text-cyan-300 font-bold border-x border-slate-800">
+            <span className="text-[10px] font-mono px-1.5 text-slate-400">
               {Math.round(zoomLevel * 100)}%
             </span>
             <button
               onClick={() => handleZoom(0.2)}
-              className="p-1.5 text-slate-400 hover:text-white"
+              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
-              onClick={resetZoom}
-              className="p-1.5 text-slate-500 hover:text-slate-300 border-l border-slate-800"
-              title="Reset Zoom"
+              onClick={handleResetView}
+              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white border-l border-slate-800 transition-colors"
+              title="Reset View"
             >
               <RotateCcw className="w-3 h-3" />
             </button>
           </div>
-
-          {/* Fullscreen Modal Toggle */}
-          <button
-            onClick={() => {
-              sound.click();
-              setIsFullscreen(!isFullscreen);
-            }}
-            className="p-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Expand Microscope'}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
         </div>
+
       </div>
 
-      {/* Main Canvas Viewport */}
+      {/* Main Forensic Canvas Viewport */}
       <div 
         ref={containerRef}
-        onMouseMove={handleMouseMoveCanvas}
-        onMouseDown={() => filterMode === 'SPLIT' && setIsDraggingSplit(true)}
-        onMouseUp={() => setIsDraggingSplit(false)}
-        onMouseLeave={() => {
-          setCursorPos(null);
-          setIsDraggingSplit(false);
-        }}
-        className="relative flex-1 bg-[#060913] p-4 flex items-center justify-center overflow-auto min-h-[380px] cursor-crosshair select-none"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        className="flex-1 relative overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing select-none bg-[#020617] min-h-[360px]"
       >
-        {isProcessing && (
-          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm z-30 flex items-center justify-center">
-            <div className="flex items-center space-x-2.5 text-cyan-300 text-xs font-medium">
-              <span className="inline-block w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></span>
-              <span>Synthesizing multi-layer forensic matrix...</span>
-            </div>
-          </div>
-        )}
-
-        {/* Floating Reticle Telemetry HUD */}
-        {cursorPos && (
-          <div className="absolute bottom-4 left-4 z-30 bg-[#0c1222]/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-cyan-500/30 text-[10px] font-mono text-slate-300 flex items-center space-x-3 shadow-lg pointer-events-none">
-            <div className="flex items-center space-x-1 text-cyan-400 font-bold">
-              <Crosshair className="w-3 h-3" />
-              <span>X:{cursorPos.normX}% Y:{cursorPos.normY}%</span>
-            </div>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400">
-              ELA RESIDUAL: <span className="text-emerald-400 font-bold">0.14 Δ</span>
-            </span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400">
-              SUBSTRATE: <span className="text-cyan-300 font-bold">GENUINE TD3</span>
-            </span>
-          </div>
-        )}
-
-        {/* Split Mode Slider Helper */}
-        {filterMode === 'SPLIT' && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 bg-slate-900/90 backdrop-blur-md px-3 py-1 rounded-full border border-cyan-500/40 text-[11px] font-medium text-cyan-300 shadow-md flex items-center space-x-1.5 pointer-events-none">
-            <SlidersHorizontal className="w-3 h-3" />
-            <span>Drag cursor across canvas to slide between Original &amp; ELA Heatmap</span>
-          </div>
-        )}
-
-        {/* Document Canvas Container */}
-        <div
-          className="relative transition-transform duration-100 ease-out max-w-full"
-          style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center center' }}
+        <div 
+          style={{
+            transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+            transformOrigin: 'center center',
+            transition: isPanning ? 'none' : 'transform 0.15s ease-out'
+          }}
+          className="relative max-w-full max-h-full"
         >
+          {/* Main Visual / Processed Canvas */}
           <canvas
             ref={canvasRef}
-            className="max-w-full h-auto rounded-xl border border-slate-800/90 shadow-2xl block"
-            style={{ width: '840px', maxHeight: isFullscreen ? '780px' : '520px', objectFit: 'contain' }}
+            className="max-h-[500px] object-contain rounded shadow-2xl block mx-auto pointer-events-none"
           />
 
-          {/* Interactive Bounding Box Hotspots with Pulsing Radar Rings */}
-          {showBoundingBoxes && tampering.regions.map((region) => {
-            const isAlert = region.status === 'ALERT';
-            const isWarning = region.status === 'WARNING';
-            const isSelected = activePin?.id === region.id;
+          {/* Interactive Evidence Bounding Boxes */}
+          {(showOverlays || !!selectedRegion) && regions.map((region) => {
+            const isSelected = selectedRegion?.id === region.id;
+            const isAnomaly = region.status === 'ALERT' || region.status === 'WARNING' || region.riskScore > 0;
 
             return (
               <div
                 key={region.id}
-                onClick={() => handlePinClick(region)}
-                className={`absolute cursor-pointer transition-transform duration-150 ${
-                  isSelected ? 'z-20' : 'z-10'
-                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onSelectRegion) onSelectRegion(region);
+                }}
                 style={{
                   left: `${region.x}%`,
                   top: `${region.y}%`,
                   width: `${region.width}%`,
                   height: `${region.height}%`,
                 }}
+                className={`absolute cursor-pointer transition-all rounded ${
+                  isSelected
+                    ? 'border-2 border-blue-400 bg-blue-500/20 shadow-lg ring-2 ring-blue-400/50'
+                    : isAnomaly
+                    ? 'border border-rose-500 bg-rose-500/10 hover:bg-rose-500/20'
+                    : 'border border-emerald-500/80 bg-emerald-500/5 hover:bg-emerald-500/15'
+                }`}
               >
-                {/* Bounding box outline */}
-                <div
-                  className={`relative w-full h-full rounded-lg border-2 transition-all ${
-                    isAlert
-                      ? 'border-rose-500 bg-rose-500/15 shadow-lg shadow-rose-500/20'
-                      : isWarning
-                      ? 'border-amber-400 bg-amber-500/15 shadow-lg shadow-amber-500/20'
-                      : 'border-emerald-400 bg-emerald-500/15 shadow-lg shadow-emerald-500/20'
-                  } ${isSelected ? 'ring-2 ring-white scale-[1.02]' : 'hover:scale-[1.01]'}`}
-                >
-                  {/* Radar Pulse Rings on Anomalies */}
-                  {(isAlert || isWarning) && (
-                    <span className="absolute -top-1.5 -left-1.5 flex h-4 w-4">
-                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                        isAlert ? 'bg-rose-400' : 'bg-amber-400'
-                      }`} />
-                      <span className={`relative inline-flex rounded-full h-4 w-4 text-[9px] font-bold text-white items-center justify-center ${
-                        isAlert ? 'bg-rose-600' : 'bg-amber-600'
-                      }`}>
-                        !
-                      </span>
-                    </span>
-                  )}
-
-                  {/* Hotspot Tag */}
-                  <div
-                    className={`absolute -top-3.5 left-2 px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center space-x-1 shadow-md ${
-                      isAlert
-                        ? 'bg-rose-600 text-white'
-                        : isWarning
-                        ? 'bg-amber-600 text-white'
-                        : 'bg-emerald-600 text-white'
-                    }`}
-                  >
-                    <span>{region.name}</span>
-                  </div>
+                {/* Region Label Tag */}
+                <div className={`absolute -top-5 left-0 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold whitespace-nowrap ${
+                  isAnomaly ? 'bg-rose-900 text-rose-200 border border-rose-700' : 'bg-slate-800 text-slate-300 border border-slate-700'
+                }`}>
+                  {region.name} {isAnomaly && '⚠'}
                 </div>
               </div>
             );
           })}
-        </div>
-      </div>
 
-      {/* Selected Anomaly Inspector Footer */}
-      {activePin ? (
-        <div className="bg-[#0f172a] border-t border-slate-800 p-4 transition-all">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center space-x-3">
-              <div
-                className={`p-2 rounded-xl ${
-                  activePin.status === 'ALERT'
-                    ? 'bg-rose-500/15 text-rose-400 border border-rose-500/40'
-                    : activePin.status === 'WARNING'
-                    ? 'bg-amber-500/15 text-amber-400 border border-amber-500/40'
-                    : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40'
-                }`}
-              >
-                {activePin.status === 'ALERT' ? (
-                  <AlertTriangle className="w-4 h-4" />
-                ) : (
-                  <CheckCircle className="w-4 h-4" />
-                )}
+          {/* Curtain Split Mode Handle */}
+          {filterMode === 'SPLIT' && (
+            <div
+              style={{ left: `${splitRatio * 100}%` }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                setIsDraggingSplit(true);
+              }}
+              className="absolute inset-y-0 w-1 bg-white cursor-ew-resize z-20 flex items-center justify-center shadow-lg"
+            >
+              <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold shadow-md">
+                ↔
               </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-bold text-white uppercase tracking-wider">{activePin.name}</span>
-                  <span
-                    className={`text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                      activePin.status === 'ALERT'
-                        ? 'bg-rose-950/90 text-rose-300 border border-rose-800'
-                        : activePin.status === 'WARNING'
-                        ? 'bg-amber-950/90 text-amber-300 border border-amber-800'
-                        : 'bg-emerald-950/90 text-emerald-300 border border-emerald-800'
-                    }`}
-                  >
-                    {activePin.status === 'ALERT' ? 'TAMPERING DETECTED' : activePin.status === 'WARNING' ? 'ANOMALY DETECTED' : 'CONFORMS'}
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    Risk Contribution: +{activePin.riskScore}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300 mt-0.5 font-medium">{activePin.title}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Selected Region Detailed Context Pill (Level 2 Progressive Disclosure) */}
+        {selectedRegion && (
+          <div className="absolute bottom-3 left-3 right-3 bg-slate-900/95 border border-slate-700 rounded-md p-2.5 shadow-xl text-xs flex items-center justify-between gap-3 animate-in fade-in duration-150 z-20">
+            <div className="space-y-0.5 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-white font-mono text-xs">
+                  {selectedRegion.name}
+                </span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  (selectedRegion.status === 'ALERT' || selectedRegion.riskScore > 0) ? 'bg-rose-900/80 text-rose-300 border border-rose-700' : 'bg-emerald-900/80 text-emerald-300 border border-emerald-700'
+                }`}>
+                  {(selectedRegion.status === 'ALERT' || selectedRegion.riskScore > 0) ? 'ANOMALY DETECTED' : 'INTEGRITY VERIFIED'}
+                </span>
               </div>
+              <p className="text-[11px] text-slate-300 truncate">
+                {selectedRegion.explanation}
+              </p>
             </div>
 
             <button
-              onClick={() => {
-                sound.click();
-                setInternalPin(null);
-                if (onSelectRegion) onSelectRegion(null);
-              }}
-              className="text-xs text-slate-400 hover:text-slate-200 px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors"
+              onClick={() => onSelectRegion && onSelectRegion(null)}
+              className="text-[11px] text-slate-400 hover:text-white px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded transition-colors flex-shrink-0"
             >
-              Dismiss Pin
+              Clear Focus
             </button>
           </div>
+        )}
 
-          <div className="mt-2.5 bg-[#080d19] p-3 rounded-xl border border-slate-800 text-slate-300 leading-relaxed text-xs">
-            <span className="text-cyan-400 font-bold block mb-1 font-mono text-[10px] uppercase">
-              Forensic Evidence Signal:
-            </span>
-            {activePin.explanation}
-          </div>
+      </div>
+
+      {/* Forensic Bottom Status Strip */}
+      <div className="bg-slate-950 px-3 py-1.5 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+        <div className="flex items-center gap-3">
+          <span>ELA VARIANCE: <strong className="text-slate-200">{(tampering.elaVariance ?? 5.4).toFixed(1)}</strong></span>
+          <span>&bull;</span>
+          <span>REGIONS INSPECTED: <strong className="text-slate-200">{regions.length}</strong></span>
         </div>
-      ) : (
-        <div className="bg-[#0f172a] border-t border-slate-800 px-4 py-2.5 flex items-center justify-between text-xs text-slate-400">
-          <div className="flex items-center space-x-2 text-xs">
-            <Info className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Click any box on the ID document to inspect digital artifact breakdown.</span>
-          </div>
-          <span className="text-[11px] font-mono text-slate-400">
-            {tampering.regions.length} regions inspected • ELA Variance: {tampering.elaVariance != null ? tampering.elaVariance.toFixed(1) : '5.4'}
-          </span>
+        <div className="text-slate-500">
+          Click region to focus &bull; Drag to pan &bull; Scroll/buttons to zoom
         </div>
-      )}
+      </div>
+
     </div>
   );
 };

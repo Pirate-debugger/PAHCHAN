@@ -4,24 +4,32 @@ import { SYNTHETIC_TEST_CASES } from '../data/mockCases';
 import { 
   History, 
   Search, 
-  Eye, 
-  Filter, 
-  ShieldCheck, 
-  Database,
-  X 
+  Database, 
+  X, 
+  ArrowUpRight 
 } from 'lucide-react';
-import { sound } from '../utils/sound';
 
 interface AuditLogViewProps {
   sessions: ScreeningSession[];
   onViewSession: (session: ScreeningSession) => void;
 }
 
+interface AuditRecord {
+  id: string;
+  timestamp: string;
+  caseId: string;
+  action: string;
+  user: string;
+  result: string;
+  sha256?: string;
+  sessionData?: ScreeningSession;
+}
+
 export const AuditLogView: React.FC<AuditLogViewProps> = ({ sessions, onViewSession }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterRisk, setFilterRisk] = useState<string>('ALL');
+  const [filterAction, setFilterAction] = useState<string>('ALL');
   const [dbLogsCount, setDbLogsCount] = useState<number>(0);
-  const [selectedAuditRecord, setSelectedAuditRecord] = useState<ScreeningSession | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
 
   // Fetch SQLite audit logs from FastAPI endpoint if available
   useEffect(() => {
@@ -37,252 +45,254 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ sessions, onViewSess
       });
   }, []);
 
-  // Combined sessions from prop + synthetic lab history
-  const allSessions: ScreeningSession[] = [
-    ...sessions,
-    ...SYNTHETIC_TEST_CASES.map((tc) => ({
-      ...tc.sessionData,
-      documentImageUrl: tc.documentImage,
-      liveFaceImageUrl: tc.liveFaceImage
+  // Construct realistic enterprise audit timeline from sessions + synthetic lab cases
+  const auditRecords: AuditRecord[] = [
+    ...sessions.map((s, idx) => ({
+      id: `AUD-${idx + 100}`,
+      timestamp: s.timestamp.split(' ')[0] || 'Today 09:42',
+      caseId: s.sessionId,
+      action: 'Screening Completed',
+      user: s.operatorId || 'OFFICER-SSB-449',
+      result: s.totalRiskScore < 30 ? 'Standard Clearance' : s.totalRiskScore < 70 ? 'Secondary Advised' : 'Flagged Critical',
+      sha256: s.documentSha256 || 'fa3843b01ba9518d27600d16954aaa5c724eb635a7dec5616e7421416755acdb',
+      sessionData: s
+    })),
+    ...SYNTHETIC_TEST_CASES.map((tc, idx) => ({
+      id: `AUD-SYN-${idx + 1}`,
+      timestamp: tc.sessionData.timestamp.split(' ')[0] || 'Today 08:30',
+      caseId: tc.sessionData.sessionId,
+      action: tc.sessionData.totalRiskScore > 70 ? 'Supervisor Review Required' : 'Evaluation Cleared',
+      user: 'OFFICER-SSB-449',
+      result: tc.title.split('(')[0].trim(),
+      sha256: tc.sessionData.documentSha256 || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      sessionData: {
+        ...tc.sessionData,
+        documentImageUrl: tc.documentImage,
+        liveFaceImageUrl: tc.liveFaceImage
+      }
     }))
   ];
 
-  const filtered = allSessions.filter((s) => {
+  const filtered = auditRecords.filter((r) => {
     const matchesSearch =
-      s.fields.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.fields.docNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.sessionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.documentSha256 && s.documentSha256.toLowerCase().includes(searchTerm.toLowerCase()));
+      r.caseId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.result.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (r.sha256 && r.sha256.toLowerCase().includes(searchTerm.toLowerCase()));
 
     if (!matchesSearch) return false;
-    if (filterRisk === 'LOW') return s.totalRiskScore < 30;
-    if (filterRisk === 'MEDIUM') return s.totalRiskScore >= 30 && s.totalRiskScore < 70;
-    if (filterRisk === 'CRITICAL') return s.totalRiskScore >= 70;
+    if (filterAction === 'CLEARED') return r.result.includes('Clear');
+    if (filterAction === 'FLAGGED') return r.result.includes('Flagged') || r.result.includes('Review');
     return true;
   });
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-200">
+    <div className="space-y-4 text-xs">
       
       {/* Top Banner */}
-      <div className="bg-[#0f172a] p-5 rounded-2xl border border-slate-800 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center space-x-2">
-            <span className="p-1.5 bg-blue-500/10 text-cyan-400 rounded-lg border border-blue-500/20">
-              <History className="w-4 h-4" />
-            </span>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-400">
-              IMMUTABLE AUDIT TRAIL
-            </span>
+          <div className="flex items-center space-x-1.5 text-blue-600 font-semibold text-[11px] uppercase tracking-wider">
+            <History className="w-3.5 h-3.5" />
+            <span>Cryptographic Ledger</span>
           </div>
-          <h1 className="text-lg font-extrabold text-white tracking-wide mt-1">
-            Forensic Screening History &amp; Cryptographic Log
+          <h1 className="text-base font-bold text-slate-900 tracking-tight mt-0.5">
+            Immutable Audit Trail &amp; Event History
           </h1>
-          <p className="text-xs text-slate-400 max-w-2xl mt-0.5 leading-relaxed">
-            Tamper-evident record of all processed travel documents, SHA-256 digital digests, and officer clearance decisions.
+          <p className="text-xs text-slate-500">
+            Tamper-evident record of all processed travel documents, SHA-256 digital digests, and officer clearance actions.
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           {dbLogsCount > 0 && (
-            <span className="text-xs font-mono text-emerald-400 bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-800/60 flex items-center gap-1.5">
-              <Database className="w-3.5 h-3.5" />
-              SQLITE SYNC: <span className="font-bold">{dbLogsCount}</span>
+            <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 flex items-center gap-1">
+              <Database className="w-3 h-3" />
+              <span>SQLite Sync: <strong>{dbLogsCount}</strong></span>
             </span>
           )}
-          <span className="text-xs font-mono text-slate-400 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800">
-            TOTAL RECORDS: <span className="text-cyan-400 font-bold">{filtered.length}</span>
+          <span className="text-[11px] font-mono text-slate-600 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
+            Total Events: <strong>{filtered.length}</strong>
           </span>
         </div>
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="bg-[#0f172a] p-3.5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-subtle flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative flex-1 w-full max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search by passenger name, document number, SHA-256, or session ID..."
+            placeholder="Search by case ID, action, SHA-256 hash, or result..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[#090d16] border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono transition-colors"
+            className="w-full bg-slate-50 border border-slate-200 rounded-md pl-8 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:bg-white font-mono transition-colors"
           />
         </div>
 
-        <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto">
-          <Filter className="w-3.5 h-3.5 text-slate-400 mr-1" />
-          {[
-            { id: 'ALL', label: 'All Records' },
-            { id: 'LOW', label: 'Low Risk' },
-            { id: 'MEDIUM', label: 'Secondary Review' },
-            { id: 'CRITICAL', label: 'Critical Alerts' }
-          ].map((f) => (
+        <div className="flex items-center gap-1 text-xs">
+          {['ALL', 'CLEARED', 'FLAGGED'].map((f) => (
             <button
-              key={f.id}
-              onClick={() => {
-                sound.click();
-                setFilterRisk(f.id);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                filterRisk === f.id
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+              key={f}
+              onClick={() => setFilterAction(f)}
+              className={`px-2.5 py-1 rounded-md transition-colors ${
+                filterAction === f 
+                  ? 'bg-slate-900 text-white font-medium shadow-xs' 
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              {f.label}
+              {f === 'ALL' ? 'All Events' : f === 'CLEARED' ? 'Cleared Cases' : 'Flagged / Review'}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-[#0f172a] rounded-2xl border border-slate-800 shadow-sm overflow-hidden">
+      {/* Enterprise Audit Table */}
+      <div className="bg-white rounded-lg border border-slate-200 shadow-subtle overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-[#0c1222] text-slate-400 border-b border-slate-800 text-[11px] font-mono uppercase">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-500 font-semibold text-[11px] border-b border-slate-200 uppercase tracking-wide">
               <tr>
-                <th className="p-3.5">Session ID</th>
-                <th className="p-3.5">Timestamp</th>
-                <th className="p-3.5">Passenger Name</th>
-                <th className="p-3.5">Doc Number</th>
-                <th className="p-3.5">SHA-256 Digest</th>
-                <th className="p-3.5">Risk Score</th>
-                <th className="p-3.5">Directive</th>
-                <th className="p-3.5 text-right">Action</th>
+                <th className="px-4 py-2.5">Timestamp</th>
+                <th className="px-4 py-2.5">Case Reference</th>
+                <th className="px-4 py-2.5">Action Performed</th>
+                <th className="px-4 py-2.5">Officer ID</th>
+                <th className="px-4 py-2.5">Outcome / Result</th>
+                <th className="px-4 py-2.5 text-right">Details</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400 font-sans">
-                    No matching screening sessions found for the specified query.
+            <tbody className="divide-y divide-slate-100">
+              {filtered.map((record) => (
+                <tr
+                  key={record.id}
+                  onClick={() => setSelectedRecord(record)}
+                  className="hover:bg-slate-50/80 cursor-pointer transition-colors"
+                >
+                  <td className="px-4 py-3 text-slate-500 font-mono text-[11px]">
+                    {record.timestamp}
+                  </td>
+                  <td className="px-4 py-3 font-mono font-medium text-blue-600">
+                    {record.caseId}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-slate-900">
+                    {record.action}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600 font-mono text-[11px]">
+                    {record.user}
+                  </td>
+                  <td className="px-4 py-3 text-slate-700">
+                    {record.result}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className="text-blue-600 hover:underline font-medium text-xs">
+                      View Drawer →
+                    </span>
                   </td>
                 </tr>
-              ) : (
-                filtered.map((s, idx) => {
-                  const isLow = s.totalRiskScore < 30;
-                  const isMed = s.totalRiskScore >= 30 && s.totalRiskScore < 70;
-
-                  return (
-                    <tr 
-                      key={`${s.sessionId}-${idx}`} 
-                      className="hover:bg-[#131d31]/60 transition-colors cursor-pointer"
-                      onClick={() => setSelectedAuditRecord(s)}
-                    >
-                      <td className="p-3.5 font-bold text-cyan-400 text-[11px]">{s.sessionId}</td>
-                      <td className="p-3.5 text-slate-400 text-[10.5px] whitespace-nowrap">{s.timestamp}</td>
-                      <td className="p-3.5 font-sans font-bold text-white uppercase">{s.fields.name}</td>
-                      <td className="p-3.5 text-slate-300 tracking-wider">{s.fields.docNumber}</td>
-                      <td className="p-3.5 text-slate-400 text-[10px] truncate max-w-[120px]" title={s.documentSha256}>
-                        {s.documentSha256 ? s.documentSha256.slice(0, 12) + '...' : 'e3b0c442...'}
-                      </td>
-                      <td className="p-3.5">
-                        <span
-                          className={`font-bold px-2 py-0.5 rounded ${
-                            isLow ? 'text-emerald-400 bg-emerald-950/60' : isMed ? 'text-amber-400 bg-amber-950/60' : 'text-rose-400 bg-rose-950/60'
-                          }`}
-                        >
-                          {s.totalRiskScore}/100
-                        </span>
-                      </td>
-                      <td className="p-3.5">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            isLow
-                              ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
-                              : isMed
-                              ? 'bg-amber-950/80 text-amber-300 border border-amber-800'
-                              : 'bg-rose-950/80 text-rose-300 border border-rose-800'
-                          }`}
-                        >
-                          {s.decision.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            sound.click();
-                            onViewSession(s);
-                          }}
-                          className="px-3 py-1 bg-slate-800 hover:bg-cyan-600 text-slate-200 hover:text-white rounded-lg text-[11px] font-semibold inline-flex items-center space-x-1 transition-colors"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Inspect</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+              ))}
             </tbody>
           </table>
         </div>
+
+        {filtered.length === 0 && (
+          <div className="p-8 text-center text-slate-500">
+            No audit records matching your criteria.
+          </div>
+        )}
       </div>
 
-      {/* Detail Slide-Over / Modal on Row Click */}
-      {selectedAuditRecord && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0f172a] border border-slate-700 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center space-x-2">
-                <ShieldCheck className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-sm font-bold text-white font-mono">
-                  Audit Record: {selectedAuditRecord.sessionId}
-                </h3>
+      {/* Right-Side Audit Event Detail Drawer */}
+      {selectedRecord && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-md h-full shadow-2xl border-l border-slate-200 flex flex-col animate-in slide-in-from-right duration-200">
+            
+            {/* Drawer Header */}
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div>
+                <span className="text-[11px] font-mono text-slate-500 uppercase font-semibold">Audit Event Detail</span>
+                <h3 className="text-sm font-bold text-slate-900 font-mono">{selectedRecord.caseId}</h3>
               </div>
-              <button 
-                onClick={() => setSelectedAuditRecord(null)}
-                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400"
+              <button
+                onClick={() => setSelectedRecord(null)}
+                className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs font-mono">
-              <div className="bg-[#090d16] p-3 rounded-xl border border-slate-800">
-                <span className="text-slate-500 block text-[10px]">PASSENGER NAME</span>
-                <span className="font-bold text-white uppercase">{selectedAuditRecord.fields.name}</span>
+            {/* Drawer Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs text-slate-700">
+              
+              <div className="space-y-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <div>
+                  <span className="text-[11px] text-slate-400 block font-mono">ACTION</span>
+                  <span className="font-semibold text-slate-900">{selectedRecord.action}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block font-mono">RECORDED BY</span>
+                  <span className="font-mono text-slate-800">{selectedRecord.user}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block font-mono">TIMESTAMP</span>
+                  <span className="font-mono text-slate-800">{selectedRecord.timestamp}</span>
+                </div>
               </div>
-              <div className="bg-[#090d16] p-3 rounded-xl border border-slate-800">
-                <span className="text-slate-500 block text-[10px]">DOCUMENT NUMBER</span>
-                <span className="font-bold text-cyan-300">{selectedAuditRecord.fields.docNumber}</span>
+
+              {/* Cryptographic SHA-256 Digest */}
+              <div>
+                <span className="text-slate-500 font-semibold block mb-1 text-[11px] uppercase tracking-wide">
+                  Cryptographic SHA-256 Digest
+                </span>
+                <div className="bg-slate-900 text-slate-200 p-2.5 rounded font-mono text-[10px] break-all border border-slate-800">
+                  {selectedRecord.sha256}
+                </div>
               </div>
-              <div className="bg-[#090d16] p-3 rounded-xl border border-slate-800">
-                <span className="text-slate-500 block text-[10px]">CHECKPOINT &amp; OPERATOR</span>
-                <span className="text-slate-300">{selectedAuditRecord.checkpoint}</span>
-              </div>
-              <div className="bg-[#090d16] p-3 rounded-xl border border-slate-800">
-                <span className="text-slate-500 block text-[10px]">CALIBRATED RISK SCORE</span>
-                <span className="font-bold text-rose-400">{selectedAuditRecord.totalRiskScore} / 100 ({selectedAuditRecord.riskLevel})</span>
-              </div>
-              <div className="bg-[#090d16] p-3 rounded-xl border border-slate-800 col-span-2">
-                <span className="text-slate-500 block text-[10px]">SHA-256 DIGITAL INTEGRITY DIGEST</span>
-                <span className="text-cyan-400 text-[10.5px] break-all">{selectedAuditRecord.documentSha256 || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'}</span>
-              </div>
+
+              {/* Audit Findings Summary */}
+              {selectedRecord.sessionData && (
+                <div className="space-y-2 border-t border-slate-100 pt-3">
+                  <span className="text-slate-500 font-semibold block text-[11px] uppercase tracking-wide">
+                    Associated Screening Findings
+                  </span>
+                  <div className="p-2.5 bg-slate-50 rounded border border-slate-200 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Risk Score:</span>
+                      <strong className="font-mono text-slate-900">{selectedRecord.sessionData.totalRiskScore} / 100</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Holder Name:</span>
+                      <strong className="text-slate-800">{selectedRecord.sessionData.fields.name}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Document No:</span>
+                      <strong className="font-mono text-slate-800">{selectedRecord.sessionData.fields.docNumber}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
 
-            <div className="flex space-x-2 pt-2">
-              <button
-                onClick={() => {
-                  sound.click();
-                  onViewSession(selectedAuditRecord);
-                  setSelectedAuditRecord(null);
-                }}
-                className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold"
-              >
-                Open in Screening Workstation
-              </button>
-              <button
-                onClick={() => setSelectedAuditRecord(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
-              >
-                Dismiss
-              </button>
-            </div>
+            {/* Drawer Footer Actions */}
+            {selectedRecord.sessionData && (
+              <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    onViewSession(selectedRecord.sessionData!);
+                    setSelectedRecord(null);
+                  }}
+                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <span>Open Case in Workstation</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
           </div>
         </div>
       )}
+
     </div>
   );
 };

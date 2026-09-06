@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { 
-  Sliders, 
   MapPin, 
-  ShieldCheck, 
-  Info, 
   Save, 
   RotateCcw, 
   Server, 
-  Check 
+  Check, 
+  Lock, 
+  AlertTriangle
 } from 'lucide-react';
-import { sound } from '../utils/sound';
 
 interface SettingsPanelProps {
   currentCheckpoint: string;
@@ -34,6 +32,14 @@ const DEFAULT_WEIGHT_CONFIGS: RiskWeightConfig[] = [
   { key: 'metadata_warning', label: 'Software Editing Metadata Footprint', description: 'Presence of digital editing software tags (Photoshop, GIMP)', defaultWeight: 5 }
 ];
 
+const CHECKPOINTS = [
+  { id: 'raxaul', name: 'Raxaul Land Border Checkpoint (Indo-Nepal)', region: 'Indo-Nepal Border (SSB)' },
+  { id: 'attari', name: 'Attari-Wagah Integrated Check Post', region: 'Indo-Pakistan Border (BSF/BOI)' },
+  { id: 'petrapole', name: 'Petrapole Integrated Check Post', region: 'Indo-Bangladesh Border (BOI)' },
+  { id: 'delhi', name: 'Indira Gandhi Int’l Airport (T3)', region: 'Bureau of Immigration (MHA)' },
+  { id: 'mumbai', name: 'CSM International Airport (T2)', region: 'Bureau of Immigration (MHA)' }
+];
+
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   currentCheckpoint,
   onCheckpointChange
@@ -46,6 +52,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     return init;
   });
 
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(false);
   const [savedNotice, setSavedNotice] = useState<boolean>(false);
 
   const handleWeightChange = (key: string, val: number) => {
@@ -53,13 +60,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   };
 
   const handleSave = () => {
-    sound.success();
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 2500);
   };
 
-  const handleReset = () => {
-    sound.click();
+  const handleResetDefaults = () => {
     const init: Record<string, number> = {};
     DEFAULT_WEIGHT_CONFIGS.forEach((c) => {
       init[c.key] = c.defaultWeight;
@@ -68,155 +73,169 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in-50 duration-200">
+    <div className="space-y-6 max-w-4xl mx-auto text-xs">
       
-      {/* Header */}
-      <div className="bg-[#0f172a] p-5 rounded-2xl border border-slate-800 shadow-md flex items-center justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2 font-mono text-xs text-cyan-400 font-bold uppercase">
-            <Sliders className="w-4 h-4" />
-            <span>OPERATIONAL CONFIGURATION</span>
-          </div>
-          <h1 className="text-lg font-extrabold text-white">
-            System Preferences &amp; Calibrated Risk Factor Weights
-          </h1>
-          <p className="text-xs text-slate-400">
-            Configure checkpoint environment parameters and additive scoring weights.
-          </p>
-        </div>
-
-        {savedNotice && (
-          <span className="flex items-center space-x-1.5 text-xs font-mono text-emerald-300 bg-emerald-950/80 px-3 py-1.5 rounded-xl border border-emerald-800 animate-in fade-in">
-            <Check className="w-4 h-4" />
-            <span>Weights Calibrated</span>
-          </span>
-        )}
+      {/* Top Header */}
+      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-subtle">
+        <h1 className="text-base font-bold text-slate-900 tracking-tight">
+          System &amp; Workstation Settings
+        </h1>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Checkpoint duty post configuration, officer profile, accessibility preferences, and administrator calibration.
+        </p>
       </div>
 
-      {/* Checkpoint Location Configuration */}
-      <div className="bg-[#0f172a] p-5 rounded-2xl border border-slate-800 shadow-sm space-y-4">
-        <div className="flex items-center space-x-2 border-b border-slate-800 pb-3">
-          <MapPin className="w-4 h-4 text-cyan-400" />
-          <h2 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-            Active Inspection Checkpost
-          </h2>
+      {/* 1. Checkpoint Duty Post & Operator Profile */}
+      <div className="bg-white rounded-lg border border-slate-200 shadow-subtle p-5 space-y-4">
+        <div className="flex items-center space-x-2 text-slate-900 font-bold text-sm border-b border-slate-100 pb-2">
+          <MapPin className="w-4 h-4 text-blue-600" />
+          <span>Active Checkpoint Duty Post</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[
-            { name: 'Raxaul Land Border Checkpoint', region: 'Indo-Nepal Border (SSB)' },
-            { name: 'Attari-Wagah Integrated Check Post', region: 'Indo-Pakistan Border (BSF/BOI)' },
-            { name: 'Petrapole Integrated Check Post', region: 'Indo-Bangladesh Border (BOI)' },
-            { name: 'Indira Gandhi Int’l Airport (T3)', region: 'Bureau of Immigration (MHA)' },
-            { name: 'CSM International Airport (T2)', region: 'Bureau of Immigration (MHA)' }
-          ].map((cp) => (
-            <button
-              key={cp.name}
-              onClick={() => {
-                sound.click();
-                onCheckpointChange(cp.name);
-              }}
-              className={`p-3 rounded-xl border text-left transition-all ${
-                currentCheckpoint.includes(cp.name.split(' ')[0])
-                  ? 'bg-blue-950/60 border-cyan-500/80 text-white shadow-md shadow-cyan-500/10'
-                  : 'bg-[#090d16] border-slate-800 text-slate-300 hover:border-slate-700'
-              }`}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-slate-600 font-medium block">Select Checkpoint Location</label>
+            <select
+              value={currentCheckpoint}
+              onChange={(e) => onCheckpointChange(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-300 rounded-md p-2 text-xs text-slate-900 focus:ring-1 focus:ring-blue-600 focus:bg-white transition-colors"
             >
-              <span className="block font-bold text-xs">{cp.name}</span>
-              <span className="text-[11px] text-slate-400 font-mono">{cp.region}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Additive Scoring Weights Configuration */}
-      <div className="bg-[#0f172a] p-5 rounded-2xl border border-slate-800 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center space-x-2">
-            <ShieldCheck className="w-4 h-4 text-cyan-400" />
-            <h2 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-              Additive Risk Scoring Matrix (0–100 Clamped)
-            </h2>
+              {CHECKPOINTS.map((cp) => (
+                <option key={cp.id} value={cp.name}>
+                  {cp.name} — {cp.region}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleReset}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center space-x-1 border border-slate-700"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Defaults</span>
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-md"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>Save Weights</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Prototype Configuration Notice */}
-        <div className="bg-[#090d16] p-3 rounded-xl border border-slate-800 flex items-start space-x-2 text-xs text-slate-300 leading-relaxed">
-          <Info className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-          <span>
-            <strong>Decision-Support Prototype Notice:</strong> These risk weights are calibrated experimental parameters for decision-support triage. They do not constitute statutory or official government standards.
-          </span>
-        </div>
-
-        {/* Weights Sliders Grid */}
-        <div className="space-y-4 pt-2">
-          {DEFAULT_WEIGHT_CONFIGS.map((c) => (
-            <div key={c.key} className="bg-[#090d16] p-3.5 rounded-xl border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between font-mono text-xs">
-                <div>
-                  <span className="font-bold text-white block">{c.label}</span>
-                  <span className="text-[10.5px] text-slate-400 font-sans">{c.description}</span>
-                </div>
-                <span className="text-cyan-400 font-bold bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-                  +{weights[c.key] || c.defaultWeight} pts
-                </span>
-              </div>
-
-              <input
-                type="range"
-                min="0"
-                max="60"
-                step="5"
-                value={weights[c.key] || c.defaultWeight}
-                onChange={(e) => handleWeightChange(c.key, Number(e.target.value))}
-                className="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer"
-              />
+          <div className="space-y-1.5">
+            <label className="text-slate-600 font-medium block">Active Officer Badge</label>
+            <div className="p-2 bg-slate-50 border border-slate-200 rounded-md text-slate-800 font-mono font-semibold flex items-center justify-between">
+              <span>OFFICER-SSB-449</span>
+              <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-sans font-medium border border-emerald-200">
+                Authenticated
+              </span>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* System Diagnostics & Telemetry */}
-      <div className="bg-[#0f172a] p-5 rounded-2xl border border-slate-800 shadow-sm space-y-3 font-mono text-xs">
-        <div className="flex items-center space-x-2 border-b border-slate-800 pb-2.5">
-          <Server className="w-4 h-4 text-cyan-400" />
-          <h2 className="text-xs font-bold text-white uppercase tracking-wider">
-            Engine &amp; System Health Telemetry
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
-          <div className="bg-[#090d16] p-2.5 rounded-xl border border-slate-800">
-            <span className="text-[10px] text-slate-500 block">CORE API ENGINE</span>
-            <span className="text-emerald-400 font-bold">FastAPI 0.115 (ONLINE)</span>
-          </div>
-          <div className="bg-[#090d16] p-2.5 rounded-xl border border-slate-800">
-            <span className="text-[10px] text-slate-500 block">DATABASE WAL MODE</span>
-            <span className="text-emerald-400 font-bold">SQLite 3 (PRAGMA WAL)</span>
-          </div>
-          <div className="bg-[#090d16] p-2.5 rounded-xl border border-slate-800">
-            <span className="text-[10px] text-slate-500 block">COMPUTER VISION</span>
-            <span className="text-cyan-300 font-bold">NumPy + ELA (CPU FAST)</span>
           </div>
         </div>
       </div>
+
+      {/* 2. System Status & Engine Telemetry */}
+      <div className="bg-white rounded-lg border border-slate-200 shadow-subtle p-5 space-y-4">
+        <div className="flex items-center space-x-2 text-slate-900 font-bold text-sm border-b border-slate-100 pb-2">
+          <Server className="w-4 h-4 text-blue-600" />
+          <span>Engine Telemetry &amp; System Health</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+          <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
+            <span className="text-[10px] text-slate-400 block">CORE PIPELINE</span>
+            <span className="font-bold text-slate-900">FastAPI 0.115</span>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
+            <span className="text-[10px] text-slate-400 block">IMAGE FORENSICS</span>
+            <span className="font-bold text-slate-900">OpenCV 4.11</span>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
+            <span className="text-[10px] text-slate-400 block">DATABASE LEDGER</span>
+            <span className="font-bold text-slate-900">SQLite (WAL)</span>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
+            <span className="text-[10px] text-slate-400 block">OCR VALIDATION</span>
+            <span className="font-bold text-slate-900">ICAO Doc 9303</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Advanced Admin / Evaluation Mode (Section 35) */}
+      <div className="bg-white rounded-lg border border-slate-200 shadow-subtle p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div className="flex items-center space-x-2 text-slate-900 font-bold text-sm">
+            <Lock className="w-4 h-4 text-slate-500" />
+            <span>Risk Model Configuration</span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+              ADMIN / EVALUATION MODE
+            </span>
+          </div>
+
+          <button
+            onClick={() => setIsAdminUnlocked(!isAdminUnlocked)}
+            className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+              isAdminUnlocked 
+                ? 'bg-amber-100 text-amber-900 hover:bg-amber-200' 
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            {isAdminUnlocked ? 'Lock Controls' : 'Unlock Controls'}
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-500">
+          Risk factor weights determine additive penalty points (0–100) assigned to detected visual, cryptographic, or biometric anomalies. Standard screening officers cannot alter these parameters in operational duty.
+        </p>
+
+        {isAdminUnlocked ? (
+          <div className="space-y-4 pt-2 animate-in fade-in duration-150">
+            <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <span className="text-[11px] leading-relaxed">
+                <strong>Administrative Mode Active:</strong> Point weights are calibrated heuristics for prototype evaluation. Altering weights directly affects screening severity thresholds.
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {DEFAULT_WEIGHT_CONFIGS.map((cfg) => {
+                const currentVal = weights[cfg.key] ?? cfg.defaultWeight;
+                return (
+                  <div key={cfg.key} className="p-3 bg-slate-50 rounded-md border border-slate-200 space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-slate-900">{cfg.label}</span>
+                      <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                        +{currentVal} pts
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">{cfg.description}</p>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={currentVal}
+                      onChange={(e) => handleWeightChange(cfg.key, Number(e.target.value))}
+                      className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded cursor-pointer"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+              <button
+                onClick={handleResetDefaults}
+                className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 flex items-center gap-1.5 font-medium"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset to Factory Defaults</span>
+              </button>
+
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
+              >
+                {savedNotice ? <Check className="w-4 h-4 text-white" /> : <Save className="w-4 h-4" />}
+                <span>{savedNotice ? 'Saved Successfully' : 'Apply Configuration'}</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+            <Lock className="w-6 h-6 mx-auto mb-1 text-slate-400" />
+            <p className="font-medium text-slate-600">Model tuning parameters are locked.</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Click "Unlock Controls" to access evaluation risk sliders.</p>
+          </div>
+        )}
+
+      </div>
+
     </div>
   );
 };

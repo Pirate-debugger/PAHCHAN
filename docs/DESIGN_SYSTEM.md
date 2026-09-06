@@ -1,113 +1,142 @@
-# PAHCHAN — Enterprise Security Design System & UX Standards
-**Smart India Hackathon 2026 — Problem Statement SIH2026188**  
-**Team:** Debugs Pirates | **Agency Target:** Border & Immigration Checkpoints (SSB, BOI, MHA)
+# PAHCHAN — Official Design System & UI Specifications (Light Enterprise + Dark Canvas)
+**Smart India Hackathon 2026 — Problem Statement SIH2026188: AI-Based Fake Identity & Document Screening System**  
+**Version:** 4.0.0 (Enterprise Case Review Standard)
 
 ---
 
-## 1. Core Philosophy: The Law Enforcement & SOC Standard
+## 1. Core Visual Principles & The Dual-Surface Paradigm
 
-PAHCHAN is intentionally engineered to avoid the visual tropes of consumer SaaS or decorative "AI magic" apps (neon cyberpunk, gratuitous glassmorphism, floating particles, or arbitrary 3D models).
+PAHCHAN is engineered to feel like a high-precision, trustworthy case management workstation for document verification and forensic analysis:
 
-Instead, PAHCHAN communicates:
-- **Trust & Authority:** Clear institutional identity and uncompromising precision.
-- **Explainability Over Assertion:** Every risk indicator is grounded in physical, optical, or mathematical proof.
-- **The 3-Second Rule:** An inspecting officer facing a passenger at a busy international checkpoint must grasp the security status within 3 seconds of scanning.
-- **Cognitive Ease Under Stress:** High data density balanced by disciplined spacing, consistent contrast, and strict hierarchy.
-
----
-
-## 2. Color Palette & Semantic Color Mapping
-
-Colors in PAHCHAN carry unambiguous, non-negotiable operational meaning. **Color is never used in isolation**; it is always paired with a textual label, numerical score, and iconic glyph.
-
-### 2.1 Dark Surface Foundations
-| Token | Hex | Role | Usage |
-|---|---|---|---|
-| `bg-primary` | `#070b14` | Void Black / Deep Slate | Main application background |
-| `surface-1` | `#0f172a` | Card / Panel Background | Primary container surface |
-| `surface-2` | `#0b1220` | Recessed Background | Embedded cards, preview sheets |
-| `surface-input` | `#080d19` | Well / Input Surface | Dropdowns, text inputs, code boxes |
-| `border-subtle` | `#1e293b` | Divider | Inactive borders, row dividers |
-| `border-active` | `#334155` | Elevated Border | Active cards, hover states |
-
-### 2.2 Operational Status Tiers
-| Tier | Score Range | Primary Hex | Background Tint | Border Tint | Operational Meaning |
-|---|---|---|---|---|---|
-| **LOW (Clear)** | 0 – 29 | `#34d399` (Emerald) | `rgba(6, 78, 59, 0.25)` | `rgba(6, 95, 70, 0.8)` | Document authentic, biometrics match. Clear for entry. |
-| **MEDIUM (Review)**| 30 – 69 | `#fbbf24` (Amber) | `rgba(120, 53, 15, 0.25)` | `rgba(146, 64, 14, 0.8)` | Discrepancies detected. Secondary physical inspection required. |
-| **CRITICAL (Alert)**| 70 – 100 | `#f43f5e` (Rose) | `rgba(136, 19, 55, 0.25)` | `rgba(159, 18, 57, 0.8)` | Tampering, forgery, or impersonation detected. Detain / supervisor review. |
-
-### 2.3 Brand & Data Accents
-- **Cyan Focus (`#22d3ee` / `#06b6d4`):** Active selections, camera reticle lines, highlighted OCR fields.
-- **Cobalt Blue (`#2563eb` / `#1d4ed8`):** Primary action buttons, header emblem gradients.
+1. **Light / Neutral Enterprise Application Shell:**
+   - Soft off-white / light slate background (`#f8fafc` to `#f1f5f9`).
+   - Clean white surfaces (`#ffffff`) with subtle 1px border lines (`#e2e8f0`).
+   - Dark, legible typography (`#0f172a` headers, `#334155` body text) maximizing scanning speed.
+   - Restrained deep cobalt primary accent (`#2563eb` / `#1d4ed8`).
+2. **Dark Neutral Forensic Inspection Canvas:**
+   - The document viewing area and Error Level Analysis (ELA) viewer use a dedicated dark stage (`#0f172a` / `#020617`).
+   - This creates an intentional, ergonomic optical separation: physical document fibers, security threads, and micro-compression artifacts are inspected on a high-contrast dark stage without visual glare, while surrounding data, tables, and notes are read on a comfortable light surface.
+3. **No Cyberpunk or SaaS Tropes:**
+   - No neon glowing borders, no floating 3D graphics, no continuous scanner sweep animations, no decorative AI magic particles.
+   - Animations are restricted to functional micro-transitions (< 150ms) and drawer slides.
 
 ---
 
-## 3. Typography & Hierarchy
+## 2. Design Tokens
 
-PAHCHAN employs a dual-typeface typographic system designed for data-heavy inspection:
+### 2.1 Color Tokens
+```css
+:root {
+  /* Application Shell Surfaces */
+  --bg-app: #f8fafc;          /* slate-50: Main application background */
+  --bg-surface: #ffffff;      /* white: Primary card & panel surfaces */
+  --bg-subtle: #f1f5f9;       /* slate-100: Table headers, inactive wells */
+  --bg-canvas-dark: #0f172a;   /* slate-900: Dedicated forensic document stage */
+  --bg-canvas-deep: #020617;   /* slate-950: Document viewport backdrop */
 
-### 3.1 Font Families
-1. **Sans-Serif (`Inter` / System UI):** Used for navigation, explanations, instructions, and button labels. Optimized for legibility at small sizes (`11px` to `14px`).
-2. **Monospace (`JetBrains Mono` / `Courier New`):** Used for all forensic data, document numbers, MRZ character strings, SHA-256 digests, timestamps, and numerical risk scores.
+  /* Borders & Dividers */
+  --border-subtle: #e2e8f0;    /* slate-200: Standard container borders */
+  --border-medium: #cbd5e1;    /* slate-300: Input & active borders */
+  --border-dark: #1e293b;      /* slate-800: Forensic stage borders */
 
-### 3.2 Scale & Weights
-| Scale | Size | Line Height | Weight | Tracking | Usage |
-|---|---|---|---|---|---|
-| `display` | 24px | 32px | 900 (Black) | Wide | Key risk scores, critical status banners |
-| `h1` | 18px | 24px | 800 (Extrabold) | Normal | Page titles, major section headers |
-| `h2` | 14px | 20px | 700 (Bold) | Normal | Card titles, quadrant headers |
-| `body` | 12px | 18px | 500 (Medium) | Normal | Explanations, findings descriptions |
-| `caption` | 11px | 16px | 500 (Medium) | Normal | Field labels, secondary metadata |
-| `mono-code` | 11px | 16px | 600 (Semibold) | Tight | MRZ lines, ICAO modulo-10 digits, hex dumps |
+  /* Text & Typography */
+  --text-primary: #0f172a;     /* slate-900: High-contrast headings */
+  --text-secondary: #334155;   /* slate-700: Readable body copy */
+  --text-muted: #64748b;       /* slate-500: Metadata & field labels */
+  --text-on-dark: #f8fafc;     /* slate-50: Text on forensic canvas */
 
----
+  /* Brand / Primary Action */
+  --brand-primary: #2563eb;    /* blue-600: Primary action buttons */
+  --brand-hover: #1d4ed8;      /* blue-700: Hover state */
+  --brand-light: #eff6ff;      /* blue-50: Active navigation background */
 
-## 4. Layout Architecture: The 4-Quadrant Workstation
+  /* Semantic Status & Risk Tiers */
+  --status-low-bg: #ecfdf5;    /* emerald-50 */
+  --status-low-text: #047857;  /* emerald-700 */
+  --status-low-border: #a7f3d0;/* emerald-200 */
 
-The Primary Workstation (`Screening`) uses an ergonomic 12-column split layout optimized for widescreen checkpoint monitors:
+  --status-review-bg: #fffbeb; /* amber-50 */
+  --status-review-text: #b45309;/* amber-700 */
+  --status-review-border: #fde68a;/* amber-200 */
 
-```
-+-------------------------------------------------------------------------+
-| [NAVBAR] PAHCHAN | Overview | Screening | Evidence | Reports | Audit ...|
-+-------------------------------------------------------------------------+
-| [SCENARIOS BAR] #1 Genuine | #2 Spliced | #3 DOB Mod | #4 Stamp ...     |
-+-------------------------------------------------------------------------+
-| [INSTANT VERDICT BANNER] Verdict + Score + 3-Second Summary             |
-+------------------------------------+------------------------------------+
-| LEFT COLUMN (7 Cols)               | RIGHT COLUMN (5 Cols)              |
-| [Quadrant 1: Forensics Viewer]     | [Quadrant 3: Biometrics 1:1 Match] |
-| - High-res image with zoom & pan   | - Document Photo vs Presenter      |
-| - ELA Heatmap, Sobel Edge, Noise   | - Cosine Distance & Landmark Mesh  |
-| - Curtain split mode & reticle     |                                    |
-| [Quadrant 2: Extracted Fields]     | [Quadrant 4: Risk & Decision]      |
-| - OCR table with confidences       | - Circular SVG Gauge (0-100)       |
-| - ICAO MRZ 7-3-1 Math Inspector    | - Additive Factor Breakdown        |
-| - Cross-document discrepancies     | - Action Buttons (Clear/2nd/Detain)|
-+------------------------------------+------------------------------------+
+  --status-high-bg: #fff7ed;   /* orange-50 */
+  --status-high-text: #c2410c; /* orange-700 */
+  --status-high-border: #fed7aa;/* orange-200 */
+
+  --status-critical-bg: #fef2f2;/* rose-50 */
+  --status-critical-text: #b91c1c;/* rose-700 */
+  --status-critical-border: #fecdd3;/* rose-200 */
+}
 ```
 
+### 2.2 Typography Scale
+- **Page Title:** `24px` (`font-bold text-slate-900`)
+- **Section Title:** `16px` (`font-semibold text-slate-900`)
+- **Card Heading:** `14px` (`font-semibold text-slate-800`)
+- **Body Text:** `14px` (`font-normal text-slate-700`, line-height: `20px`)
+- **Secondary / Captions:** `13px` (`font-medium text-slate-500`)
+- **Technical Metadata / Badges:** `12px` (`font-mono text-slate-600`)
+- **Document / MRZ Codes:** `12px` (`font-mono font-bold tracking-wider`)
+
+### 2.3 Spacing & Border Radius
+- **Inputs:** `border-radius: 6px;` (`rounded-md`)
+- **Buttons:** `border-radius: 6px;` (`rounded-md`)
+- **Cards & Panels:** `border-radius: 8px;` (`rounded-lg`)
+- **Dialogs & Drawers:** `border-radius: 10px;`
+- **Badges:** `border-radius: 4px;` (`rounded`)
+
 ---
 
-## 5. Micro-Interactions & Audio-Tactile Feedback
+## 3. Component Design Specifications
 
-To assist officers in fast-paced environments, PAHCHAN features subtle, optional Web Audio API sound effects:
-- **Scan (`sound.scan()`):** Subtle radar sweep tone during analysis.
-- **Success (`sound.success()`):** Gentle harmonic chime on low risk clearance.
-- **Alert (`sound.alert()`):** Low double pulse on critical risk finding.
-- **Click (`sound.click()`):** Crisp tactile tick on navigation and tab selection.
-- **Audio Briefing (`sound.speak()`):** Text-to-speech synthesize briefing of findings for hands-free inspection.
-*Note: A one-click mute button in the Navbar enables silent operation at any time.*
+### 3.1 Header & Top Navigation
+- **Height:** `56px` (`h-14`), sticky top with white background and subtle bottom border (`border-b border-slate-200`).
+- **Brand Element:** "PAHCHAN" (`font-bold text-slate-900 tracking-wide`), Subtitle: "Identity & Document Screening", and subtle badge: `Prototype • SIH 2026`.
+- **Center / Quick Actions:** Compact search box (`Search case ID or document number...`), duty post label (e.g. *Raxaul Land Border*), officer profile badge (*Officer SSB-449*).
+- **Eliminated Header Noise:** Clocks, audio toggles, blinking API pings, and scenario switchers are removed from the global header.
+
+### 3.2 Primary Workflow Navigation
+- Integrated 7-tab bar or sub-header:
+  1. `Overview`
+  2. `Screenings` (Case Queue)
+  3. `New Screening` (Case Workstation)
+  4. `Reports`
+  5. `Audit Log`
+  6. `Demo Lab`
+  7. `Settings`
+- Active indicator: `text-blue-700 bg-blue-50 border-b-2 border-blue-600 font-semibold`. Inactive: `text-slate-600 hover:text-slate-900 hover:bg-slate-50`.
+
+### 3.3 The Screening Workstation Layout
+- **Container:** Clean flex/grid layout maximizing screen real estate.
+- **Left / Center (Document Inspection Area):**
+  - Dark studio frame (`bg-slate-900 rounded-lg border border-slate-800 p-2`) with zoom, pan, fit controls, and view toggles (`Original | Annotated | Compare`).
+  - Interactive bounding boxes that highlight upon selecting an extracted field or forensic finding.
+- **Right (Screening Verdict & Decision Panel):**
+  - Clean screening risk score tile (`72 / 100 HIGH RISK`).
+  - Key finding indicators with severity badges.
+  - Operational recommendation (*Secondary Review Required*).
+  - Human-in-the-Loop decision recording buttons: `[Confirm Clear]` `[Request Secondary]` `[Escalate / Hold]`.
+- **Bottom / Drawer (Findings & Traceability Inspector):**
+  - Table of itemized findings: Title, Severity, Confidence, Evidence Summary, Risk Contribution, and "View in Document →" action.
+
+### 3.4 Tables (Screening Queue & Audit Log)
+- White table background with crisp headers (`bg-slate-50 text-xs font-semibold text-slate-500 uppercase border-b border-slate-200`).
+- Alternating row hover: `hover:bg-slate-50/80 cursor-pointer transition-colors`.
+- Rows contain: Case ID, Document, Submitted Time, Risk Pill, Status, Key Finding, Assigned Officer, Action.
+- Clicking any row opens a right-side sliding **Case Detail Drawer** (`max-w-md bg-white border-l border-slate-200 shadow-xl`).
+
+### 3.5 Status Badges & Alerts
+Every badge includes an explicit SVG icon, label, and accessible contrast:
+- `LOW / PASS`: Emerald badge with CheckCircle icon (`bg-emerald-50 text-emerald-700 border border-emerald-200`).
+- `REVIEW / CAUTION`: Amber badge with AlertTriangle icon (`bg-amber-50 text-amber-700 border border-amber-200`).
+- `HIGH / WARNING`: Orange badge with AlertCircle icon (`bg-orange-50 text-orange-700 border border-orange-200`).
+- `CRITICAL / ALERT`: Crimson badge with ShieldAlert icon (`bg-rose-50 text-rose-700 border border-rose-200`).
 
 ---
 
-## 6. Accessibility (WCAG 2.1 Level AA) Compliance
+## 4. Accessibility & Human Factors (WCAG 2.2 AA)
 
-1. **Color Contrast:** All body text meets minimum 4.5:1 contrast against dark surfaces. Monospace badges meet 7:1 against their backgrounds.
-2. **Keyboard Navigation:**
-   - Keys `1` through `8`: Instant load of synthetic test scenarios.
-   - Key `R`: Trigger AI Rescan.
-   - Key `D`: Open Official Audit Dossier.
-   - Keys `C`, `S`, `A`: Clear Entry, Secondary Inspection, Detain Alert.
-3. **Screen Readers:** ARIA live regions announce scan progress and verdict changes.
-4. **Form Labels:** All inputs and file upload dropzones feature explicit labels and focus rings (`focus:ring-2 focus:ring-cyan-500`).
+1. **Contrast Guarantee:** All body text achieves $\ge 4.5:1$ against white or light gray surfaces; headers achieve $\ge 7:1$.
+2. **Focus Visibility:** All interactive buttons and inputs utilize a high-visibility focus ring: `focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2`.
+3. **Motion Sensitivity:** All transitions respect `@media (prefers-reduced-motion: reduce)`.
+4. **Empty & Error States:** Explicit, helpful language explaining *What this area is*, *Why it is empty/failing*, and *What specific action the officer should take*.

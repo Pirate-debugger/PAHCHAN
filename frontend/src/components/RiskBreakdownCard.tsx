@@ -1,20 +1,17 @@
 import React, { useState } from 'react';
 import type { RiskFactor, DecisionType, ExplainabilityDossier } from '../types';
 import { 
-  ShieldCheck, 
   CheckCircle2, 
-  UserX, 
-  HelpCircle, 
-  FileText,
   AlertTriangle, 
-  Lightbulb,
-  Volume2,
-  Copy,
-  Check,
-  Sliders,
-  X
+  ShieldAlert, 
+  HelpCircle, 
+  ChevronDown, 
+  ChevronUp, 
+  Volume2, 
+  Copy, 
+  Check, 
+  FileText
 } from 'lucide-react';
-import { sound } from '../utils/sound';
 
 interface RiskBreakdownCardProps {
   riskScore: number;
@@ -22,6 +19,7 @@ interface RiskBreakdownCardProps {
   decision: DecisionType;
   onSetDecision: (decision: DecisionType) => void;
   onOpenReportModal: () => void;
+  onSelectFindingRegion?: (regionId: string) => void;
   explainability?: ExplainabilityDossier;
 }
 
@@ -31,35 +29,41 @@ export const RiskBreakdownCard: React.FC<RiskBreakdownCardProps> = ({
   decision,
   onSetDecision,
   onOpenReportModal,
+  onSelectFindingRegion,
   explainability
 }) => {
+  const [showWhyScore, setShowWhyScore] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
-  const [showWeightsModal, setShowWeightsModal] = useState<boolean>(false);
 
+  // Standardized Risk Tiers
+  // 0-29: LOW | 30-59: REVIEW | 60-79: HIGH | 80-100: CRITICAL
   const isLow = riskScore < 30;
-  const isMedium = riskScore >= 30 && riskScore < 70;
+  const isReview = riskScore >= 30 && riskScore < 60;
+  const isHigh = riskScore >= 60 && riskScore < 80;
+  const isCritical = riskScore >= 80;
 
-  const handleCopyDispatch = () => {
-    sound.click();
-    const briefingText = `[PAHCHAN INTELLIGENCE BRIEFING]\nRisk Score: ${riskScore}/100 (${isLow ? 'LOW' : isMedium ? 'MEDIUM' : 'CRITICAL'})\nRecommendation: ${explainability?.officerRecommendation || 'Proceed according to standard operating procedure.'}\nEvidence: ${explainability?.supportingEvidence?.join('; ') || 'Standard check passed.'}`;
-    navigator.clipboard.writeText(briefingText);
+  const severityLabel = isLow ? 'LOW' : isReview ? 'REVIEW' : isHigh ? 'HIGH' : 'CRITICAL';
+  
+  const activeAnomalies = riskFactors.filter((f) => f.points > 0);
+  const signalsCount = activeAnomalies.length;
+
+  const handleCopySummary = () => {
+    const text = `PAHCHAN Screening Case Briefing\nRisk Score: ${riskScore}/100 (${severityLabel})\nSignals: ${signalsCount} flagged\nRecommendation: ${explainability?.officerRecommendation || 'Follow standard operating protocol.'}\nFindings: ${riskFactors.map(f => `${f.title} (+${f.points})`).join(', ')}`;
+    navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleReadAloud = () => {
-    sound.click();
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       if (isSpeaking) {
         window.speechSynthesis.cancel();
         setIsSpeaking(false);
         return;
       }
-      const textToSpeak = `PAHCHAN Screening Verdict. Risk score ${riskScore} out of 100. Severity: ${isLow ? 'Low risk. Passenger clear.' : isMedium ? 'Medium risk. Secondary physical inspection advised.' : 'Critical risk. Severe document anomaly or imposter detected.'} Operational directive: ${explainability?.officerRecommendation || 'Check document credentials.'}`;
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
+      const text = `Screening Risk Score: ${riskScore} out of 100. Severity: ${severityLabel}. ${signalsCount} signals require review. Operational recommendation: ${explainability?.officerRecommendation || 'Check credentials'}.`;
+      const utterance = new SpeechSynthesisUtterance(text);
       utterance.onend = () => setIsSpeaking(false);
       utterance.onerror = () => setIsSpeaking(false);
       setIsSpeaking(true);
@@ -67,304 +71,242 @@ export const RiskBreakdownCard: React.FC<RiskBreakdownCardProps> = ({
     }
   };
 
-  const handleDecision = (d: DecisionType) => {
-    if (d === 'CLEAR_ENTRY') sound.success();
-    else if (d === 'DETAIN_ALERT') sound.alert();
-    else sound.click();
-    onSetDecision(d);
-  };
-
   return (
-    <div className="bg-[#0f172a] rounded-2xl border border-slate-800 shadow-sm p-4 space-y-4">
-      {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-        <div className="flex items-center space-x-2.5">
-          <div className="p-2 bg-blue-500/10 text-cyan-400 rounded-xl border border-blue-500/20">
-            <ShieldCheck className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                PAHCHAN RISK ENGINE
-              </h3>
-              <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.2 rounded border border-slate-700">
-                Additive 0-100
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400">Explainable multi-signal forensic risk ledger</p>
-          </div>
+    <div className="bg-white rounded-lg border border-slate-200 shadow-subtle p-4 space-y-4 text-xs">
+      
+      {/* Header: Title & Actions */}
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+            Decision Support
+          </span>
+          <h2 className="text-sm font-bold text-slate-900">
+            Screening Risk Assessment
+          </h2>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => {
-              sound.click();
-              setShowWeightsModal(true);
-            }}
-            className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 border border-slate-800 transition-colors"
-            title="Configure Risk Weights"
+            onClick={handleReadAloud}
+            className={`p-1.5 rounded transition-colors ${
+              isSpeaking ? 'bg-blue-100 text-blue-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+            }`}
+            title="Read summary aloud"
           >
-            <Sliders className="w-3.5 h-3.5" />
+            <Volume2 className="w-3.5 h-3.5" />
           </button>
-
           <button
-            onClick={() => {
-              sound.click();
-              onOpenReportModal();
-            }}
-            className="px-3 py-1.5 bg-gradient-to-r from-blue-700 via-indigo-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-500 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 transition-all shadow-md shadow-blue-900/30 border border-cyan-400/20"
+            onClick={handleCopySummary}
+            className="p-1.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title="Copy briefing"
           >
-            <FileText className="w-3.5 h-3.5 text-cyan-200" />
-            <span>Official Dossier</span>
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
 
-      {/* Main Score Banner */}
-      <div
-        className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
-          isLow
-            ? 'bg-emerald-950/25 border-emerald-800/80 shadow-emerald-950/20'
-            : isMedium
-            ? 'bg-amber-950/25 border-amber-800/80 shadow-amber-950/20'
-            : 'bg-rose-950/25 border-rose-800/80 shadow-rose-950/20'
-        }`}
-      >
+      {/* Main Score Display Box */}
+      <div className={`p-4 rounded-lg border flex items-center justify-between gap-4 ${
+        isLow 
+          ? 'bg-emerald-50/60 border-emerald-200' 
+          : isReview 
+          ? 'bg-amber-50/60 border-amber-200' 
+          : isHigh 
+          ? 'bg-orange-50/60 border-orange-200' 
+          : 'bg-rose-50/60 border-rose-200'
+      }`}>
         <div className="space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-            Calibrated Risk Severity
-          </span>
-          <div className="text-sm font-extrabold flex items-center space-x-2">
-            <span
-              className={
-                isLow ? 'text-emerald-400' : isMedium ? 'text-amber-400' : 'text-rose-400'
-              }
-            >
-              {isLow
-                ? 'LOW RISK — PASSENGER CLEAR'
-                : isMedium
-                ? 'MEDIUM RISK — SECONDARY REVIEW'
-                : 'CRITICAL RISK — ACTION REQUIRED'}
+          <div className="flex items-center gap-1.5">
+            {isLow ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            ) : isCritical ? (
+              <ShieldAlert className="w-4 h-4 text-rose-600" />
+            ) : (
+              <AlertTriangle className={`w-4 h-4 ${isReview ? 'text-amber-600' : 'text-orange-600'}`} />
+            )}
+            <span className={`text-xs font-bold font-mono tracking-wider ${
+              isLow ? 'text-emerald-800' : isReview ? 'text-amber-800' : isHigh ? 'text-orange-800' : 'text-rose-800'
+            }`}>
+              {severityLabel} RISK
             </span>
           </div>
-          <p className="text-xs text-slate-300 max-w-xs leading-relaxed">
-            {isLow
-              ? 'Pristine security substrate, authentic MRZ check digits, and high biometric face match.'
-              : isMedium
-              ? 'Discrepancies identified across text or metadata. Physical inspection recommended.'
-              : 'Severe tampering or identity impersonation confirmed across multiple signals.'}
+
+          <p className="text-xs text-slate-600">
+            {isLow 
+              ? 'No anomaly detected. Credentials conform to baseline.' 
+              : `${signalsCount} signal${signalsCount === 1 ? '' : 's'} require human review.`}
           </p>
         </div>
 
-        {/* Circular SVG Risk Gauge */}
-        <div className="flex flex-col items-center flex-shrink-0 ml-3">
-          <div className="relative w-18 h-18 flex items-center justify-center">
-            <svg className="w-18 h-18 transform -rotate-90" viewBox="0 0 36 36">
-              <path
-                className="text-slate-800"
-                strokeWidth="3.5"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                className={`transition-all duration-700 ease-out ${
-                  isLow ? 'text-emerald-500' : isMedium ? 'text-amber-500' : 'text-rose-500'
-                }`}
-                strokeDasharray={`${riskScore}, 100`}
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
-              <span className="text-base font-extrabold text-white">{riskScore}</span>
-              <span className="text-[9px] text-slate-400">/100</span>
-            </div>
+        {/* Numerical Score */}
+        <div className="text-right flex-shrink-0">
+          <div className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
+            {riskScore}
+            <span className="text-xs font-normal text-slate-400 ml-0.5">/100</span>
           </div>
         </div>
       </div>
 
-      {/* Detected Signals / Issues List */}
+      {/* Signal Contributions List */}
       <div className="space-y-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
-          Additive Risk Factors Ledger ({riskFactors.length})
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+          Observed Risk Signals ({signalsCount})
         </span>
 
-        {riskFactors.length === 0 ? (
-          <div className="bg-[#090d16] p-3 rounded-xl border border-slate-800 text-emerald-400 text-xs flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>All biometric, forensic, and cryptographic check digits conform to authentic baseline.</span>
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-            {riskFactors.map((rf) => (
-              <div
-                key={rf.id}
-                className="bg-[#090d16] p-3 rounded-xl border border-slate-800 flex items-start justify-between text-xs space-x-2"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
-                    <span className="font-bold text-white text-[11.5px]">{rf.title}</span>
+        <div className="space-y-1.5">
+          {riskFactors.length > 0 ? (
+            riskFactors.map((f) => {
+              const isFlagged = f.points > 0;
+              return (
+                <div
+                  key={f.id}
+                  onClick={() => f.regionId && onSelectFindingRegion && onSelectFindingRegion(f.regionId)}
+                  className={`p-2 rounded border flex items-center justify-between text-xs transition-colors ${
+                    isFlagged 
+                      ? 'bg-slate-50 border-slate-200 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40' 
+                      : 'bg-white border-slate-100 text-slate-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      !isFlagged ? 'bg-emerald-400' : f.severity === 'critical' ? 'bg-rose-500' : 'bg-amber-400'
+                    }`} />
+                    <span className={`truncate ${isFlagged ? 'font-medium text-slate-800' : 'text-slate-500'}`}>
+                      {f.title}
+                    </span>
                   </div>
-                  <p className="text-[11px] text-slate-300">{rf.description}</p>
-                  {rf.evidence && (
-                    <p className="text-[10px] text-cyan-300/80 font-mono">Evidence: {rf.evidence}</p>
-                  )}
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`font-mono font-bold ${
+                      isFlagged ? 'text-slate-900' : 'text-slate-400'
+                    }`}>
+                      {f.points > 0 ? `+${f.points}` : '0'}
+                    </span>
+                    {f.regionId && onSelectFindingRegion && (
+                      <span className="text-[10px] text-blue-600 font-medium hover:underline">
+                        View →
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-[10.5px] font-bold text-rose-300 bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-800 flex-shrink-0 font-mono">
-                  +{rf.points}
-                </span>
+              );
+            })
+          ) : (
+            <div className="text-xs text-slate-400 italic py-1">
+              No elevated risk factors detected.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Operational Recommendation */}
+      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide block">
+          Operational Recommendation
+        </span>
+        <p className="text-xs font-medium text-slate-800 leading-relaxed">
+          {explainability?.officerRecommendation || (
+            isLow ? 'Standard review. Clear passenger for standard entry.' : 'Secondary physical inspection advised.'
+          )}
+        </p>
+      </div>
+
+      {/* Human-in-the-Loop Clearance Decision Controls */}
+      <div className="space-y-2 border-t border-slate-100 pt-3">
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide block">
+          Record Officer Determination
+        </span>
+        
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={() => onSetDecision('CLEAR_ENTRY')}
+            className={`py-2 px-2 rounded-md font-medium text-xs transition-colors border text-center ${
+              decision === 'CLEAR_ENTRY'
+                ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
+            }`}
+          >
+            Confirm Clear
+          </button>
+
+          <button
+            onClick={() => onSetDecision('SECONDARY_INSPECTION')}
+            className={`py-2 px-2 rounded-md font-medium text-xs transition-colors border text-center ${
+              decision === 'SECONDARY_INSPECTION'
+                ? 'bg-amber-600 border-amber-600 text-white shadow-xs'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'
+            }`}
+          >
+            Secondary
+          </button>
+
+          <button
+            onClick={() => onSetDecision('DETAIN_ALERT')}
+            className={`py-2 px-2 rounded-md font-medium text-xs transition-colors border text-center ${
+              decision === 'DETAIN_ALERT'
+                ? 'bg-rose-600 border-rose-600 text-white shadow-xs'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
+            }`}
+          >
+            Escalate / Hold
+          </button>
+        </div>
+      </div>
+
+      {/* Expandable "Why this score?" (Section 22) */}
+      <div className="border-t border-slate-100 pt-2">
+        <button
+          onClick={() => setShowWhyScore(!showWhyScore)}
+          className="w-full flex items-center justify-between text-[11px] text-slate-500 hover:text-slate-800 py-1 transition-colors font-medium"
+        >
+          <span className="flex items-center gap-1">
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>Why this score? (Scoring Breakdown)</span>
+          </span>
+          {showWhyScore ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+
+        {showWhyScore && (
+          <div className="mt-2 p-2.5 bg-slate-50 rounded border border-slate-200 space-y-2 text-[11px] text-slate-600 animate-in fade-in duration-150">
+            <p className="leading-relaxed">
+              {explainability?.whatHappened || 'Score is calculated deterministically by accumulating point penalties across visual, structural, and biometric signals.'}
+            </p>
+            <div className="border-t border-slate-200 pt-1.5 space-y-1 font-mono text-[10px]">
+              <div className="flex justify-between">
+                <span>Biometric Impersonation:</span>
+                <span>+40 pts</span>
               </div>
-            ))}
+              <div className="flex justify-between">
+                <span>Photo Splicing / Substrate:</span>
+                <span>+25 pts</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Expired Validity:</span>
+                <span>+30 pts</span>
+              </div>
+              <div className="flex justify-between">
+                <span>MRZ / VIZ Inconsistency:</span>
+                <span>+20 pts</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-400 italic pt-1 border-t border-slate-200">
+              Prototype scoring configuration. Adjusted by authorized checkpoint administrators.
+            </p>
           </div>
         )}
       </div>
 
-      {/* Decision Support Briefing with Read Aloud & Copy */}
-      {explainability && (
-        <div className="bg-[#090d16] p-3.5 rounded-xl border border-slate-800 space-y-2 text-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-1.5 text-cyan-400 font-bold text-[10.5px] uppercase tracking-wider font-mono">
-              <Lightbulb className="w-3.5 h-3.5" />
-              <span>Operational Intelligence Briefing</span>
-            </div>
-
-            <div className="flex items-center space-x-1.5">
-              <button
-                onClick={handleReadAloud}
-                className={`p-1 rounded-md text-xs transition-colors ${
-                  isSpeaking ? 'bg-cyan-500 text-black animate-pulse' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                }`}
-                title={isSpeaking ? 'Stop Speaking' : 'Read Aloud Briefing'}
-              >
-                <Volume2 className="w-3 h-3" />
-              </button>
-
-              <button
-                onClick={handleCopyDispatch}
-                className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-                title="Copy Briefing"
-              >
-                {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-              </button>
-            </div>
-          </div>
-
-          <p className="text-slate-300 text-[11px] leading-relaxed">
-            {explainability.officerRecommendation}
-          </p>
-        </div>
-      )}
-
-      {/* Officer Decision Directives */}
-      <div className="pt-2 border-t border-slate-800 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
-            Officer Clearance Directive
-          </span>
-          <span className="text-[9px] text-slate-400 italic font-mono">Human-in-the-loop</span>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          <button
-            onClick={() => handleDecision('CLEAR_ENTRY')}
-            className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center space-x-1 transition-all ${
-              decision === 'CLEAR_ENTRY'
-                ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Clear Entry</span>
-          </button>
-
-          <button
-            onClick={() => handleDecision('SECONDARY_INSPECTION')}
-            className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center space-x-1 transition-all ${
-              decision === 'SECONDARY_INSPECTION'
-                ? 'bg-amber-600 text-white shadow-md ring-2 ring-amber-400'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span>Secondary</span>
-          </button>
-
-          <button
-            onClick={() => handleDecision('DETAIN_ALERT')}
-            className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center space-x-1 transition-all ${
-              decision === 'DETAIN_ALERT'
-                ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-400'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            <UserX className="w-3.5 h-3.5" />
-            <span>Detain / Flag</span>
-          </button>
-        </div>
+      {/* View Assessment Report Action */}
+      <div className="pt-2">
+        <button
+          onClick={onOpenReportModal}
+          className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <FileText className="w-3.5 h-3.5 text-blue-600" />
+          <span>Screening Assessment Report</span>
+        </button>
       </div>
 
-      {/* Configurable Weights Modal */}
-      {showWeightsModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0f172a] border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center space-x-2">
-                <Sliders className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-sm font-bold text-white font-mono">Calibrated Risk Factor Weights</h3>
-              </div>
-              <button 
-                onClick={() => setShowWeightsModal(false)}
-                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-300">
-              Deterministic additive scoring engine assigns calibrated points per signal (0 to 100 maximum):
-            </p>
-
-            <div className="space-y-2 text-xs font-mono">
-              <div className="flex justify-between p-2 rounded-lg bg-[#080d1a] border border-slate-800">
-                <span className="text-slate-300">Photo Tampering / Splicing</span>
-                <span className="text-cyan-400 font-bold">+30 pts</span>
-              </div>
-              <div className="flex justify-between p-2 rounded-lg bg-[#080d1a] border border-slate-800">
-                <span className="text-slate-300">Biometric Face Impersonation</span>
-                <span className="text-cyan-400 font-bold">+45 pts</span>
-              </div>
-              <div className="flex justify-between p-2 rounded-lg bg-[#080d1a] border border-slate-800">
-                <span className="text-slate-300">Text &amp; DOB Manipulation</span>
-                <span className="text-cyan-400 font-bold">+25 pts</span>
-              </div>
-              <div className="flex justify-between p-2 rounded-lg bg-[#080d1a] border border-slate-800">
-                <span className="text-slate-300">Forged Immigration Stamp</span>
-                <span className="text-cyan-400 font-bold">+25 pts</span>
-              </div>
-              <div className="flex justify-between p-2 rounded-lg bg-[#080d1a] border border-slate-800">
-                <span className="text-slate-300">Expired Document</span>
-                <span className="text-cyan-400 font-bold">+35 pts</span>
-              </div>
-              <div className="flex justify-between p-2 rounded-lg bg-[#080d1a] border border-slate-800">
-                <span className="text-slate-300">INTERPOL / LEA Watchlist Hit</span>
-                <span className="text-rose-400 font-bold">+50 pts</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowWeightsModal(false)}
-              className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

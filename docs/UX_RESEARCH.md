@@ -1,145 +1,94 @@
-# PAHCHAN — Enterprise & Security Operations UX Research Document
+# PAHCHAN — Enterprise UI/UX Research & Case Review Architecture
 **Smart India Hackathon 2026 — Problem Statement SIH2026188**  
-**Design Reference:** Enterprise Security Operations Center (SOC), Border Inspection Workstations, IBM Carbon, Material Design 3, WCAG 2.1 AA.
+**Document:** Official Research-Backed Design Standards & Case Review Architecture  
+**Target Agency:** Ministry of Home Affairs / SSB & Police II Division
 
 ---
 
-## 1. Executive Design Principles
+## 1. Executive Research Summary
 
-1. **Evidence-First Decision Support:**
-   Every visual element must support the officer in answering: *What is the evidence, why does it matter, and what operational action is warranted?* The system never acts as a black box.
-2. **Cognitive Load Reduction:**
-   Border screening officers inspect high volumes of travelers under time constraints. Crucial risk indicators must be digestible within **3 seconds**, while deeper forensic details remain accessible through progressive disclosure.
-3. **Calibrated Trust & Non-Criminalization:**
-   Visual terminology must maintain professional neutrality ("Anomaly Detected", "Integrity Discrepancy", "Biometric Mismatch") rather than accusatory or definitive declarations ("Criminal", "Fake Passport").
-4. **Resilience & Determinism:**
-   Offline capability, deterministic reproduction of evidence, and cryptographic traceability form the bedrock of officer trust.
+PAHCHAN is an **AI-assisted identity and travel document screening decision-support workstation**. It serves authorized border checkpoint, immigration, and law-enforcement screening officers.
 
----
-
-## 2. Navigation Principles
-
-- **Primary Navigation Structure:**
-  - `Overview`: Command Center executive metrics, threat queue, today's screening throughput.
-  - `Screening Workstation`: Core active document ingestion, live OCR, and immediate verdict.
-  - `Evidence Viewer`: Deep-dive forensic microscope, multi-spectral filters, pixel anomaly inspection.
-  - `Reports`: Official screening dossier generation, cryptographic SHA-256 fingerprint, print export.
-  - `Audit Trail`: Cryptographic SQLite historical ledger with search, filtering, and detail inspection.
-  - `Evaluation Lab`: 8 deterministic SIH competition evaluation scenarios.
-  - `Settings`: Calibrated risk factor weights and border checkpoint selector.
-- **Rules:**
-  - Max 7 primary navigation items.
-  - Clear active indicator with distinct color, background, and icon state.
-  - Single-click transition between overview, workstation, and audit records.
+To ensure the platform meets the highest standards of professional credibility, operational speed, and defensibility, our design architecture synthesizes research from world-class enterprise, government, and investigative interface standards:
+- **GOV.UK Design System:** Clear government digital services, calm visual authority, accessible high-contrast typography, elimination of unnecessary visual noise.
+- **IBM Carbon Design System:** High-density data applications, progressive disclosure, split drawers, semantic status tokens, keyboard navigation.
+- **Nielsen Norman Group (NN/g):** Human-in-the-loop decision-support, the 3-second operational glance rule, explainable AI (XAI) interaction patterns, and cognitive load management under stress.
+- **W3C WCAG 2.2 Level AA:** Multi-modal status communication (never color alone), 4.5:1 text contrast ratios, visible keyboard focus indicators, and reduced-motion compliance.
+- **Modern Forensic Document Review Standards:** Optical separation between a high-contrast neutral application shell and a calibrated dark inspection stage for physical/optical artifacts.
 
 ---
 
-## 3. Information Hierarchy (The 3-Second Rule)
+## 2. Research Principles Matrix
 
-An officer glancing at a screened document must process information in strict order:
-1. **Tier 1 (Instant — 0 to 1 sec):** Overall Risk Severity Banner (LOW: Green, MEDIUM: Amber, CRITICAL: Red) and Score ($/100$).
-2. **Tier 2 (Contextual — 1 to 3 sec):** Holder identity, Document Number, and Primary Finding ("Photo Splicing Detected in Portrait Area").
-3. **Tier 3 (Operational — 3 to 5 sec):** Clear Directive ("Secondary Physical Inspection Advised").
-4. **Tier 4 (Investigative — On-Demand):** ELA residual variance heatmap, Sobel edge cuts, ICAO modulo-10 arithmetic, and EXIF camera metadata.
-
----
-
-## 4. Color System & Semantic Palette
-
-All interface colors adhere to WCAG 2.1 AA minimum contrast ratios (4.5:1 for normal text, 3:1 for large text).
-
-| Semantic Role | Hex Value | Application | Meaning |
+| Source | Core Principle | Why It Matters | PAHCHAN Implementation |
 |---|---|---|---|
-| **Canvas Background** | `#070B14` | Main application background | Neutral, ultra-dark command center base |
-| **Surface Level 1** | `#0F172A` | Primary container cards & cards | Elevation, high-contrast separation |
-| **Surface Level 2** | `#090D16` | Nested data wells, input fields | Recessed contrast wells |
-| **Border Normal** | `#1E293B` / `#334155` | Structural dividers | Subtle boundary definition |
-| **Border Active** | `#06B6D4` (Cyan) | Focused / Selected elements | Active operator attention |
-| **PASS / CLEAR** | `#10B981` (Emerald) | Authenticated documents | Document conforms to baseline standard |
-| **REVIEW / WARN** | `#F59E0B` (Amber) | Minor discrepancy | Secondary physical inspection required |
-| **CRITICAL / ALERT**| `#F43F5E` (Rose) | Tampering / Impersonation | Severe anomaly detected; immediate supervisory hold |
-| **INFO / SYSTEM** | `#38BDF8` (Sky) | Telemetry, OCR labels, MRZ | System operational indicators |
-
-> [!IMPORTANT]
-> **No Color-Alone Rule:** Color is never used as the single signifier. Every state combines an icon (CheckCircle, AlertTriangle, UserX), a textual label (PASS, REVIEW, CRITICAL), and numerical metrics.
+| **GOV.UK Design System** | Calm, Trustworthy Authority Over Decorative Fluff | Government officers make high-consequence legal and security decisions. Fluorescent neon, pulsing borders, and "AI magic" graphics erode trust and distract from evidence. | Light neutral enterprise UI (`#f8fafc` / `#f1f5f9`) with crisp white surfaces (`#ffffff`), restrained deep cobalt accents (`#1d4ed8`), and clean typography. No glowing cyberpunk effects. |
+| **IBM Carbon Design System** | Progressive Disclosure & High-Density Data | Officers need immediate summary verdicts first, but must be able to drill down into technical evidence without leaving the case workspace. | 3-Level Progressive Disclosure: Level 1 (Summary Verdict & Severity), Level 2 (Plain-language finding explanation & confidence), Level 3 (Technical forensics, ELA variance, MRZ math in expandable panels/drawers). |
+| **Nielsen Norman Group (NN/g)** | The 3-Second Rule in High-Stress Screening | A border officer inspecting a traveler in a physical queue has ~3 seconds to determine if the document can be quickly cleared or requires secondary investigation. | Instant Screening Verdict Banner prominently positioned atop the case workspace: Score (0–100), Status Tier (LOW, REVIEW, HIGH, CRITICAL), and actionable recommendation within 1 glance. |
+| **Nielsen Norman Group (NN/g)** | Traceability & Grounded Explainability | Trust in AI decision-support collapses if the user cannot verify *why* an anomaly was flagged or *where* the evidence is located. | Bidirectional Traceability: Clicking any finding or extracted field automatically zooms/pans the document canvas to highlight the exact visual region. |
+| **W3C WCAG 2.2 AA** | Multi-Modal Semantic Status | Color-blind users or officers viewing screens under variable checkpoint lighting cannot reliably differentiate red and green badges alone. | Every status tier pairs color with an explicit text label, numerical score, and distinct SVG icon (e.g. Shield Check, Alert Triangle, Alert Circle). |
+| **Forensic Document Inspection Standards** | The Dual-Surface Optical Model | High-resolution document images, Error Level Analysis (ELA) heatmaps, and substrate fibers require a dark, glare-free canvas, while tabular data and reports require a clean, high-contrast light reading surface. | Dual-Surface Architecture: The overall application shell is a crisp light enterprise theme, while the Document Inspection Canvas is hosted on a dark neutral inspection stage (`#0f172a` / `#090d16`). |
 
 ---
 
-## 5. Typography Scale
+## 3. The New Case Review Mental Model
 
-- **Display & Telemetry:** `JetBrains Mono`, monospace font for Document Numbers, MRZ lines, SHA-256 hashes, timestamps, and checksum math.
-- **Headings & Body:** `Inter`, modern sans-serif optimized for crisp UI readability at 10px–16px.
+The previous iteration treated the product like an "AI Telemetry Center". The transformed mental model structures everything around a **Screening Case**:
 
-| Style | Font Family | Size | Weight | Line Height |
-|---|---|---|---|---|
-| Header Title | Inter | 16px (1rem) | 800 (Extrabold) | 1.25 |
-| Section Header| Inter | 12px (0.75rem) | 700 (Bold) | 1.3 |
-| Body Normal | Inter | 12px (0.75rem) | 400 (Regular) | 1.5 |
-| Micro Data | JetBrains Mono | 10px (0.625rem)| 600 (Semibold)| 1.4 |
-| MRZ String | JetBrains Mono | 12px (0.75rem) | 700 (Bold) | 1.6 |
-
----
-
-## 6. Spacing & Layout Architecture
-
-- Strict 4px/8px modular spacing grid (`p-1` = 4px, `p-2` = 8px, `p-3` = 12px, `p-4` = 16px, `p-6` = 24px).
-- Maximum container width constrained to `max-w-7xl` (1280px) for optimal eye-tracking on large command center displays.
-- Responsive breakpoints:
-  - Mobile (`<640px`): Single-column stacked workflow.
-  - Tablet (`640px - 1024px`): 2-column workstation.
-  - Desktop (`>1024px`): 12-column balanced split (Left: Document & OCR 7 cols; Right: Biometrics & Risk 5 cols).
-
----
-
-## 7. Evidence Visualization (Forensic Microscope)
-
-1. **Curtain Slider (Split Wipe):**
-   Allows the officer to drag a physical divider horizontally across the document canvas. The left half displays the authentic document, while the right half reveals the ELA tampering heatmap, enabling undeniable comparative inspection.
-2. **Anomaly Hotspot Pins:**
-   Forensic anomaly regions (e.g. photo box, altered date, stamp) are bounded by calibrated rectangles with pulsing alert rings. Clicking any pin pans the view and loads the exact forensic explanation and mathematical contribution to the total risk score.
-3. **Live Reticle HUD:**
-   Hovering over the canvas displays localized coordinates `(X, Y)` and ELA residual variance under the cursor.
-
----
-
-## 8. Multi-Stage Scanning Progress (Transparent Feedback)
-
-Never display a vague "Loading..." spinner. The workstation implements progressive, transparent checklist states:
 ```
-[✓] Step 1: Image Ingestion & SHA-256 Fingerprint Generated
-[✓] Step 2: OCR Optical Character Recognition & Field Extraction
-[✓] Step 3: ICAO Doc 9303 Check Digit Verification (7-3-1 Modulo 10)
-[⟳] Step 4: Multi-Spectral Forensics (Error Level Analysis & Sobel Gradients)
-[○] Step 5: Biometric Face Mesh Comparison & Cosine Embedding Distance
-[○] Step 6: Multi-Signal Additive Risk Scoring & Decision Directive
+SCREENING CASE (e.g. PCH-20260907-882A)
+│
+├── 1. Document Canvas (Original, Annotated Overlays, Zoom/Pan)
+├── 2. Extracted Visual Information (OCR fields with confidence & source jump)
+├── 3. Document Validation (ICAO Doc 9303 Modulo-10 7-3-1 Checksum Math)
+├── 4. Forensic Signals (Error Level Analysis, Sobel Edge Gradient, Metadata)
+├── 5. 1:1 Facial Comparison (Document Portrait vs Presenter Image)
+├── 6. Cross-Document Consistency (Passport vs Visa/Permit correlation)
+├── 7. Calibrated Risk Score (0–100 Additive Factor Breakdown)
+├── 8. Operational Recommendation (Standard Review, Secondary, Detain)
+├── 9. Screening Assessment Report (Printable & Exportable Dossier)
+└── 10. Immutable Audit Ledger (SQLite WAL Cryptographic Trail)
 ```
 
 ---
 
-## 9. Error States & Actionable Guidance
+## 4. Information Architecture & Navigation
 
-Generic error messages ("An error occurred") are prohibited. Every error must state:
-1. **What happened:** e.g. "Facial verification could not be completed."
-2. **Why it happened:** e.g. "No frontal human face was detected in the submitted image."
-3. **Actionable remedy:** e.g. "Ensure proper lighting and upload an unoccluded passport-style portrait."
-4. **Recovery button:** `[ Re-upload Photo ]`
+The primary navigation is streamlined to 7 dedicated workflows:
+1. **Overview:** Command center answering: *What is happening? What needs attention? What should I do next?*
+2. **Screenings (Queue):** Searchable, sortable, filterable table of past and incoming cases with quick-action drawers.
+3. **New Screening (Workstation):** The primary case review workspace (Document + Findings + Risk + Decision).
+4. **Reports:** Printable, cryptographically sealed Screening Assessment Reports.
+5. **Audit Log:** Enterprise event ledger tracking officer actions, automated analyses, and supervisory overrides.
+6. **Demo Lab:** Dedicated evaluation laboratory housing the 8 deterministic SIH competition scenarios with an automated batch runner.
+7. **Settings:** Profile, display, accessibility, and an isolated **Admin / Evaluation Mode** for risk factor weights.
 
----
-
-## 10. Empty States
-
-Every empty screen must explain its purpose, explain why it is currently empty, and provide a single clear primary CTA:
-- *Example:* "No screening sessions logged yet. Ingest a travel document or launch an Evaluation Scenario to begin automated screening." `[ Start Screening ]`
+*Note: "Evidence" is no longer a primary navigation tab; evidence is accessed directly within each screening case where it belongs.*
 
 ---
 
-## 11. What Must NEVER Be Used
+## 5. Standardized Risk Scoring & Thresholds
 
-- **Cyberpunk / Sci-Fi Fluff:** Meaningless decorative wireframes, floating 3D rotating cubes, or neon grid lines that distract from evidence inspection.
-- **Fake AI Labels:** "Powered by Quantum Neural Super-AI" or arbitrary confidence numbers that have no mathematical basis.
-- **Accusatory Language:** Branding documents as "COUNTERFEIT FORGERY" or individuals as "SUSPECTS" without judicial proof.
-- **Dead Buttons / Placeholder Features:** Any button present in the UI must have a functional backend endpoint or interactive handler.
-- **Excessive Animations:** Slow bouncy animations that impede rapid decision-making during high-traffic border processing.
+To eliminate ambiguity across components, PAHCHAN enforces a single, centralized risk model:
+
+$$\text{Screening Risk Score} = \min\left(100, \sum_{i=1}^{n} \text{Weight}_i \cdot \text{AnomalySignal}_i \right)$$
+
+### Uniform Tiers:
+- **LOW (`0 – 29`):** No anomaly detected across signals. Recommendation: *Standard Review / Clearance*.
+- **REVIEW (`30 – 59`):** Minor visual, metadata, or expiration discrepancy. Recommendation: *Secondary Inspection*.
+- **HIGH (`60 – 79`):** Substantial tampering signal or face mismatch. Recommendation: *Secondary Forensic Review*.
+- **CRITICAL (`80 – 100`):** Multiple severe anomalies (e.g. spliced photo + biometric impersonation). Recommendation: *Supervisor Escalation / Hold*.
 
 ---
-*This document governs all interface decisions in PAHCHAN.*
+
+## 6. Language & Copywriting Guidelines
+
+| Prohibited Autonomous Claim | Mandated Decision-Support Term |
+|---|---|
+| "PASSPORT AUTHENTICATED" | "Document integrity: No anomaly detected" |
+| "CLEAR FOR ENTRY" | "Recommendation: Standard review" |
+| "TAMPERING DETECTED" | "Potential document alteration signal" |
+| "VERIFIED MATCH" | "Face comparison: Match signal" |
+| "IMPERSONATION DETECTED" | "Potential identity mismatch signal" |
+| "AI TRUTH SCORE" | "Screening Risk Score" |
+| "Official Government Dossier" | "Screening Assessment Report" |
