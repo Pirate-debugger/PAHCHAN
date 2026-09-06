@@ -12,6 +12,7 @@ def calculate_screening_risk(
     text_manipulated: bool = False,
     stamp_forged: bool = False,
     face_mismatch: bool = False,
+    face_skipped: bool = False,
     is_expired: bool = False,
     crossfield_mismatch: bool = False,
     watchlist_hit: bool = False,
@@ -72,7 +73,7 @@ def calculate_screening_risk(
             "evidence": "SSIM similarity < 0.50 | Security guilloche pattern broken."
         })
 
-    # 4. Face Verification Mismatch
+    # 4. Face Verification Mismatch or Skipped
     if face_mismatch:
         pts = weights.get("FACE_MISMATCH", 45)
         total_score += pts
@@ -83,7 +84,19 @@ def calculate_screening_risk(
             "points": pts,
             "severity": "critical",
             "description": "Live checkpoint presenter facial embedding distance failed required threshold.",
-            "evidence": "Cosine similarity < 60% | Landmark geometric variance > 38%."
+            "evidence": "HOG embedding cosine similarity < threshold | Face mismatch."
+        })
+    elif face_skipped:
+        pts = weights.get("FACE_VERIFICATION_SKIPPED", 35)
+        total_score += pts
+        factors.append({
+            "id": "rf-face-skipped",
+            "category": "FACE_BIOMETRIC",
+            "title": "Live Biometric Verification Pending",
+            "points": pts,
+            "severity": "medium",
+            "description": "No live camera presenter capture was provided during screening. Identity match could not be confirmed.",
+            "evidence": "Live presenter capture omitted (status: NO_LIVE_CAPTURE). Mandatory referral to Secondary Inspection."
         })
 
     # 5. Expired Travel Document

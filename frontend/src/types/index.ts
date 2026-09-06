@@ -94,11 +94,11 @@ export interface TamperingAnalysis {
 }
 
 export interface FaceVerificationResult {
-  match: boolean;
-  similarity: number;
+  match: boolean | null;
+  similarity: number | null;
   confidence: number;
   threshold: number;
-  status: 'MATCH' | 'INCONCLUSIVE' | 'MISMATCH' | 'NO_FACE_DETECTED' | 'MULTIPLE_FACES';
+  status: 'MATCH' | 'INCONCLUSIVE' | 'MISMATCH' | 'NO_FACE_DETECTED' | 'MULTIPLE_FACES' | 'NO_LIVE_CAPTURE';
   liveDetected: boolean;
   landmarksDetected: boolean;
   notes: string;

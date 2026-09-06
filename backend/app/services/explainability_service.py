@@ -77,7 +77,9 @@ def generate_explainability_dossier(
     if not validation_result.get("mrz_checksum_pass", True):
         for issue in validation_result.get("issues", []):
             supporting_evidence.append(f"Validation Check: {issue}")
-    if not face_result.get("match", True):
+    if face_result.get("status") == "NO_LIVE_CAPTURE":
+        supporting_evidence.append("Biometric Comparison: Live presenter capture missing; verification skipped (referral required).")
+    elif face_result.get("match") is False:
         supporting_evidence.append(f"Biometric Match: {face_result.get('similarity')}% similarity (Threshold {face_result.get('threshold')}%)")
     for mismatch in cross_doc_result.get("mismatches", []):
         supporting_evidence.append(f"Cross-Document Mismatch: {mismatch.get('description')}")

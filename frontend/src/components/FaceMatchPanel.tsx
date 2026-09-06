@@ -24,11 +24,22 @@ export const FaceMatchPanel: React.FC<FaceMatchPanelProps> = ({
   const [similarityThreshold, setSimilarityThreshold] = useState<number>(75);
   const [showThresholdSlider, setShowThresholdSlider] = useState<boolean>(false);
 
-  const similarity = faceResult?.similarity ?? 88.5;
-  const confidence = faceResult?.confidence ?? 0.96;
-  const imageQuality = similarity < 50 ? 'Substandard / Low' : 'Adequate / High';
+  const isNoLiveCapture = faceResult?.status === 'NO_LIVE_CAPTURE' || (!liveFaceUrl && faceResult?.similarity == null);
+  const similarity = faceResult?.similarity ?? null;
+  const confidence = faceResult?.confidence ?? (isNoLiveCapture ? 0 : 0.95);
+  const imageQuality = isNoLiveCapture 
+    ? 'No Stream / Not Provided' 
+    : (similarity !== null && similarity < 50 ? 'Substandard / Low' : 'Adequate / High');
 
   const getSignalBadge = () => {
+    if (isNoLiveCapture || similarity === null) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-300">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+          <span>No live capture — verification not performed</span>
+        </span>
+      );
+    }
     if (similarity < 50) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
@@ -153,21 +164,31 @@ export const FaceMatchPanel: React.FC<FaceMatchPanelProps> = ({
           <div className="flex items-center gap-2">
             {getSignalBadge()}
             <span className="text-xs font-mono font-bold text-slate-900">
-              {similarity.toFixed(1)}% Similarity
+              {similarity !== null ? `${similarity.toFixed(1)}% Similarity` : 'Verification Required'}
             </span>
           </div>
         </div>
 
         <div className="text-right text-[11px] text-slate-500 font-mono space-y-0.5">
-          <div>Confidence: <strong className="text-slate-700">{(confidence * 100).toFixed(0)}%</strong></div>
+          <div>Confidence: <strong className="text-slate-700">{confidence > 0 ? `${(confidence * 100).toFixed(0)}%` : 'N/A'}</strong></div>
           <div>Quality: <strong className="text-slate-700">{imageQuality}</strong></div>
         </div>
       </div>
 
       {/* Ethical & Decision Support Note */}
-      <div className="p-2.5 bg-blue-50/50 rounded border border-blue-100 text-[11px] text-blue-900 leading-relaxed">
-        <strong>Decision Support Notice:</strong> Automated facial comparison produces statistical similarity metrics. Physical identity verification remains the statutory responsibility of the duty officer.
-      </div>
+      {isNoLiveCapture ? (
+        <div className="p-2.5 bg-amber-50 rounded border border-amber-200 text-[11px] text-amber-950 leading-relaxed flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <strong>Biometric Verification Required:</strong> No live checkpoint camera capture was provided. 
+            Automated verification is fail-closed and cannot pass open. Mandatory officer referral to Secondary Inspection Booth for physical biometric verification.
+          </div>
+        </div>
+      ) : (
+        <div className="p-2.5 bg-blue-50/50 rounded border border-blue-100 text-[11px] text-blue-900 leading-relaxed">
+          <strong>Decision Support Notice:</strong> Automated facial comparison produces statistical similarity metrics. Physical identity verification remains the statutory responsibility of the duty officer.
+        </div>
+      )}
 
     </div>
   );

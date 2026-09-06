@@ -34,6 +34,7 @@ class Settings(BaseSettings):
         "TEXT_TAMPERING": 25,
         "STAMP_TAMPERING": 25,
         "FACE_MISMATCH": 45,
+        "FACE_VERIFICATION_SKIPPED": 35,
         "EXPIRED_DOCUMENT": 35,
         "CROSSFIELD_MISMATCH": 40,
         "WATCHLIST_HIT": 50,

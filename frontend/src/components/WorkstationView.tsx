@@ -130,7 +130,11 @@ export const WorkstationView: React.FC<WorkstationViewProps> = ({
             </div>
             <p className="text-xs text-slate-700 mt-0.5 leading-relaxed">
               {isLow
-                ? `Credentials conform to standard security baselines. 1:1 Biometric match signal is ${currentSession.faceVerification?.similarity.toFixed(1)}%.`
+                ? `Credentials conform to standard security baselines. ${
+                    currentSession.faceVerification?.similarity != null
+                      ? `1:1 Biometric match signal is ${currentSession.faceVerification.similarity.toFixed(1)}%.`
+                      : 'Live biometric verification pending.'
+                  }`
                 : `${activeFindings.length} anomaly signal${activeFindings.length === 1 ? '' : 's'} flagged. Physical credential examination recommended before clearance.`}
             </p>
           </div>

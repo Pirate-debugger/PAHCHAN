@@ -260,9 +260,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">1:1 Facial Similarity</span>
                 <span className={`font-mono font-semibold ${
-                  (currentSession.faceVerification?.similarity ?? 0) >= 75 ? 'text-emerald-700' : 'text-rose-700'
+                  currentSession.faceVerification?.similarity == null
+                    ? 'text-amber-700'
+                    : (currentSession.faceVerification.similarity >= 75 ? 'text-emerald-700' : 'text-rose-700')
                 }`}>
-                  {currentSession.faceVerification?.similarity.toFixed(1)}% ({currentSession.faceVerification?.status})
+                  {currentSession.faceVerification?.similarity != null
+                    ? `${currentSession.faceVerification.similarity.toFixed(1)}% (${currentSession.faceVerification.status})`
+                    : 'Pending (No Live Capture)'}
                 </span>
               </div>
               <div className="flex items-center justify-between">

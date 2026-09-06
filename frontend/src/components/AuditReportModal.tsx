@@ -166,7 +166,9 @@ export const AuditReportModal: React.FC<AuditReportModalProps> = ({ session, onC
                 <div className="flex justify-between">
                   <span className="text-slate-500">1:1 Biometric Match Signal:</span>
                   <strong className="font-mono text-slate-900">
-                    {session.faceVerification ? `${session.faceVerification.similarity.toFixed(1)}% (${session.faceVerification.status})` : 'Not presented'}
+                    {session.faceVerification && session.faceVerification.similarity != null
+                      ? `${session.faceVerification.similarity.toFixed(1)}% (${session.faceVerification.status})`
+                      : 'Skipped (No Live Capture)'}
                   </strong>
                 </div>
                 <div className="flex justify-between">

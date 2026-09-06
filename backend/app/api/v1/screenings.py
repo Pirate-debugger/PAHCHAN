@@ -102,11 +102,15 @@ async def execute_full_screening(
             )
 
         # Stage 7: Deterministic Explainable Risk Engine
+        is_face_mismatch = (face_result.get("match") is False)
+        is_face_skipped = (face_result.get("status") == "NO_LIVE_CAPTURE" or face_result.get("match") is None)
+
         risk_result = calculate_screening_risk(
             photo_replaced=forensic_result.get("photo_replaced", False),
             text_manipulated=forensic_result.get("text_manipulated", False),
             stamp_forged=forensic_result.get("stamp_forged", False),
-            face_mismatch=not face_result.get("match", True),
+            face_mismatch=is_face_mismatch,
+            face_skipped=is_face_skipped,
             is_expired=val_result.get("is_expired", False),
             crossfield_mismatch=not cross_doc_result.get("match", True),
             watchlist_hit=False,
@@ -153,9 +157,9 @@ async def execute_full_screening(
             risk_level=risk_result["risk_level"],
             decision=risk_result["decision"],
             recommendation=risk_result["recommendation"],
-            face_match=face_result.get("match", True),
-            face_similarity=face_result.get("similarity", 95.0),
-            face_status=face_result.get("status", "MATCH"),
+            face_match=face_result.get("match"),
+            face_similarity=face_result.get("similarity"),
+            face_status=face_result.get("status", "NO_LIVE_CAPTURE"),
             full_session_json=json.dumps(response_payload)
         )
         db.add(session_record)
