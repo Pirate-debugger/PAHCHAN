@@ -69,7 +69,104 @@ def generate_ela_analysis(image_bytes: bytes, quality: int = 95, scale: int = 15
             "error": str(e)
         }
 
-def analyze_photo_boundary_sobel(image_bytes: bytes) -> Dict[str, Any]:
+def detect_document_layout(image_bytes: bytes) -> Dict[str, Any]:
+    """
+    P1.6: Analyzes document geometry, dimensions, orientation, and aspect ratio.
+    Branches to layout-specific coordinate sets or flags unrecognized layout.
+    """
+    try:
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return {
+                "layout_type": "UNRECOGNIZED",
+                "layout_unrecognized": True,
+                "aspect_ratio": 0.0,
+                "orientation": "UNKNOWN",
+                "portrait_box": None,
+                "mrz_box": None,
+                "viz_box": None,
+                "stamp_box": None
+            }
+
+        h, w = img.shape[:2]
+        if h < 80 or w < 80:
+            return {
+                "layout_type": "UNRECOGNIZED",
+                "layout_unrecognized": True,
+                "aspect_ratio": round(w / max(1, h), 2),
+                "orientation": "UNKNOWN",
+                "portrait_box": None,
+                "mrz_box": None,
+                "viz_box": None,
+                "stamp_box": None
+            }
+
+        aspect_ratio = round(w / float(h), 2)
+
+        if 1.20 <= aspect_ratio <= 1.85:
+            # Standard Landscape (Passport TD3 Bio-page or ID-1 Card)
+            orientation = "LANDSCAPE"
+            layout_type = "PASSPORT_TD3_LANDSCAPE"
+            portrait_box = (0.05, 0.20, 0.30, 0.52)
+            mrz_box = (0.05, 0.78, 0.90, 0.18)
+            viz_box = (0.30, 0.15, 0.68, 0.62)
+            stamp_box = (0.55, 0.52, 0.40, 0.40)
+        elif 0.55 <= aspect_ratio <= 0.88:
+            # Portrait Scan (single vertical page / booklet)
+            orientation = "PORTRAIT"
+            layout_type = "PASSPORT_PORTRAIT_ORIENTATION"
+            portrait_box = (0.08, 0.12, 0.48, 0.35)
+            mrz_box = (0.05, 0.82, 0.90, 0.15)
+            viz_box = (0.08, 0.48, 0.85, 0.32)
+            stamp_box = (0.50, 0.55, 0.45, 0.25)
+        elif 0.88 < aspect_ratio < 1.20:
+            # Square crop (common cropped bio-data page)
+            orientation = "SQUARE"
+            layout_type = "CROPPED_BIOPAGE_SQUARE"
+            portrait_box = (0.05, 0.15, 0.38, 0.55)
+            mrz_box = (0.05, 0.75, 0.90, 0.22)
+            viz_box = (0.42, 0.15, 0.55, 0.58)
+            stamp_box = (0.50, 0.45, 0.45, 0.40)
+        else:
+            # Anomalous aspect ratio (<0.55 or >1.85)
+            return {
+                "layout_type": "ANOMALOUS_ASPECT_RATIO",
+                "layout_unrecognized": True,
+                "aspect_ratio": aspect_ratio,
+                "orientation": "ANOMALOUS",
+                "portrait_box": None,
+                "mrz_box": None,
+                "viz_box": None,
+                "stamp_box": None
+            }
+
+        return {
+            "layout_type": layout_type,
+            "layout_unrecognized": False,
+            "aspect_ratio": aspect_ratio,
+            "orientation": orientation,
+            "portrait_box": portrait_box,
+            "mrz_box": mrz_box,
+            "viz_box": viz_box,
+            "stamp_box": stamp_box
+        }
+    except Exception:
+        return {
+            "layout_type": "UNRECOGNIZED",
+            "layout_unrecognized": True,
+            "aspect_ratio": 0.0,
+            "orientation": "UNKNOWN",
+            "portrait_box": None,
+            "mrz_box": None,
+            "viz_box": None,
+            "stamp_box": None
+        }
+
+def analyze_photo_boundary_sobel(
+    image_bytes: bytes,
+    portrait_box: Optional[Tuple[float, float, float, float]] = None
+) -> Dict[str, Any]:
     """
     Uses OpenCV Sobel operators to compute edge gradient magnitude around portrait region.
     Sharp discontinuous spikes indicate physical cut-and-paste or digital photo splicing.
@@ -83,9 +180,14 @@ def analyze_photo_boundary_sobel(image_bytes: bytes) -> Dict[str, Any]:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         h, w = gray.shape
         
-        # Typical passport portrait box location (top-left: approx 20-50% height, 5-30% width)
-        y1, y2 = int(h * 0.25), int(h * 0.70)
-        x1, x2 = int(w * 0.06), int(w * 0.35)
+        # Branch to layout-specific portrait box or default passport location
+        if portrait_box:
+            bx, by, bw, bh = portrait_box
+            y1, y2 = max(0, int(h * by)), min(h, int(h * (by + bh)))
+            x1, x2 = max(0, int(w * bx)), min(w, int(w * (bx + bw)))
+        else:
+            y1, y2 = int(h * 0.25), int(h * 0.70)
+            x1, x2 = int(w * 0.06), int(w * 0.35)
         
         portrait_crop = gray[y1:y2, x1:x2]
         if portrait_crop.size == 0:
@@ -343,13 +445,16 @@ def analyze_text_tampering(
 def run_comprehensive_forensics(image_bytes: bytes) -> Dict[str, Any]:
     """
     Orchestrates full forensic analysis and produces structured forensic regions.
-    Integrates real ELA, Sobel edge splicing, SSIM stamp verification, and VIZ text tampering.
+    Integrates layout detection (P1.6), real ELA, Sobel edge splicing, SSIM stamp verification, and VIZ text tampering.
     """
+    layout = detect_document_layout(image_bytes)
+    is_unrecognized = layout.get("layout_unrecognized", False)
+
     ela_res = generate_ela_analysis(image_bytes)
-    sobel_res = analyze_photo_boundary_sobel(image_bytes)
+    sobel_res = analyze_photo_boundary_sobel(image_bytes, portrait_box=layout.get("portrait_box"))
     meta_res = inspect_image_metadata(image_bytes)
-    stamp_res = analyze_stamp_tampering_ssim(image_bytes)
-    text_res = analyze_text_tampering(image_bytes)
+    stamp_res = analyze_stamp_tampering_ssim(image_bytes, stamp_box=layout.get("stamp_box"))
+    text_res = analyze_text_tampering(image_bytes, viz_box=layout.get("viz_box"))
 
     photo_replaced = sobel_res.get("photo_replaced", False) or ela_res.get("variance", 0) > 500.0
     metadata_anomalous = meta_res.get("metadata_anomalous", False)
@@ -359,16 +464,28 @@ def run_comprehensive_forensics(image_bytes: bytes) -> Dict[str, Any]:
     regions: List[Dict[str, Any]] = []
     summary_notes: List[str] = []
 
+    # Dynamic layout coordinates
+    p_box = layout.get("portrait_box") or (0.068, 0.30, 0.20, 0.38)
+    v_box = layout.get("viz_box") or (0.28, 0.15, 0.65, 0.55)
+    s_box = layout.get("stamp_box") or (0.55, 0.50, 0.40, 0.40)
+
+    px, py, pw, ph = round(p_box[0]*100, 1), round(p_box[1]*100, 1), round(p_box[2]*100, 1), round(p_box[3]*100, 1)
+    vx, vy, vw, vh = round(v_box[0]*100, 1), round(v_box[1]*100, 1), round(v_box[2]*100, 1), round(v_box[3]*100, 1)
+    sx, sy, sw, sh = round(s_box[0]*100, 1), round(s_box[1]*100, 1), round(s_box[2]*100, 1), round(s_box[3]*100, 1)
+
+    if is_unrecognized:
+        summary_notes.append(f"Layout Forensics: Document aspect ratio ({layout.get('aspect_ratio')}) does not match standard passport/ID layout. Layout unrecognized.")
+
     # 1. Photo Region Finding
     if photo_replaced:
         regions.append({
             "id": "reg-forensic-photo",
             "name": "Passport Portrait Box",
             "type": "PHOTO",
-            "x": 6.8,
-            "y": 30.0,
-            "width": 20.0,
-            "height": 38.0,
+            "x": px,
+            "y": py,
+            "width": pw,
+            "height": ph,
             "risk_score": 88,
             "status": "ALERT",
             "title": "Photo Replacement / Splicing Anomaly Detected",
@@ -385,10 +502,10 @@ def run_comprehensive_forensics(image_bytes: bytes) -> Dict[str, Any]:
             "id": "reg-forensic-photo",
             "name": "Passport Portrait Box",
             "type": "PHOTO",
-            "x": 6.8,
-            "y": 30.0,
-            "width": 20.0,
-            "height": 38.0,
+            "x": px,
+            "y": py,
+            "width": pw,
+            "height": ph,
             "risk_score": 6,
             "status": "VALID",
             "title": "Portrait Substrate Clean",
@@ -406,10 +523,10 @@ def run_comprehensive_forensics(image_bytes: bytes) -> Dict[str, Any]:
             "id": "reg-forensic-text",
             "name": "Visual Inspection Zone (VIZ)",
             "type": "TEXT",
-            "x": 28.0,
-            "y": 15.0,
-            "width": 65.0,
-            "height": 55.0,
+            "x": vx,
+            "y": vy,
+            "width": vw,
+            "height": vh,
             "risk_score": 85,
             "status": "ALERT",
             "title": "Text Manipulation in Visual Zone",
@@ -426,10 +543,10 @@ def run_comprehensive_forensics(image_bytes: bytes) -> Dict[str, Any]:
             "id": "reg-forensic-text",
             "name": "Visual Inspection Zone (VIZ)",
             "type": "TEXT",
-            "x": 28.0,
-            "y": 15.0,
-            "width": 65.0,
-            "height": 55.0,
+            "x": vx,
+            "y": vy,
+            "width": vw,
+            "height": vh,
             "risk_score": 8,
             "status": "VALID",
             "title": "Typography & Text Substrate Clean",
@@ -447,10 +564,10 @@ def run_comprehensive_forensics(image_bytes: bytes) -> Dict[str, Any]:
             "id": "reg-forensic-stamp",
             "name": "Immigration Stamp / Endorsement Zone",
             "type": "STAMP",
-            "x": 55.0,
-            "y": 50.0,
-            "width": 40.0,
-            "height": 40.0,
+            "x": sx,
+            "y": sy,
+            "width": sw,
+            "height": sh,
             "risk_score": 82,
             "status": "ALERT",
             "title": "Counterfeit / Altered Immigration Stamp",
@@ -466,10 +583,10 @@ def run_comprehensive_forensics(image_bytes: bytes) -> Dict[str, Any]:
             "id": "reg-forensic-stamp",
             "name": "Immigration Stamp / Endorsement Zone",
             "type": "STAMP",
-            "x": 55.0,
-            "y": 50.0,
-            "width": 40.0,
-            "height": 40.0,
+            "x": sx,
+            "y": sy,
+            "width": sw,
+            "height": sh,
             "risk_score": 5,
             "status": "VALID",
             "title": "Endorsement Substrate Authentic",
@@ -514,6 +631,9 @@ def run_comprehensive_forensics(image_bytes: bytes) -> Dict[str, Any]:
         "software_detected": meta_res.get("software_detected"),
         "stamp_evidence": stamp_res.get("evidence"),
         "text_evidence": text_res.get("evidence"),
+        "layout_unrecognized": is_unrecognized,
+        "layout_type": layout.get("layout_type", "UNRECOGNIZED"),
+        "layout": layout,
         "regions": regions,
         "summary_notes": summary_notes
     }

@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Optional
 from PIL import Image
 from pypdf import PdfReader
 from app.services.validation_service import parse_and_validate_td3
+from app.services.forensics_service import detect_document_layout
 
 logger = logging.getLogger("pahchan.ocr")
 
@@ -81,6 +82,10 @@ def extract_fields_from_document(
         except Exception:
             pass
 
+    # 3.5 Detect Document Layout & Orientation (P1.6)
+    layout = detect_document_layout(image_bytes)
+    is_layout_unrecognized = layout.get("layout_unrecognized", False)
+
     # 4. If MRZ lines are identified, parse with full ICAO Doc 9303 standards
     if mrz1 and mrz2:
         mrz_data = parse_and_validate_td3(mrz1, mrz2)
@@ -93,7 +98,8 @@ def extract_fields_from_document(
             "expiryDate": mrz_data.get("expiry", "2030-01-01"),
             "docType": mrz_data.get("doc_type", "PASSPORT"),
             "mrzLine1": mrz1,
-            "mrzLine2": mrz2
+            "mrzLine2": mrz2,
+            "layout_unrecognized": is_layout_unrecognized
         }
         confidence_map = {
             "name": 0.987,
@@ -106,6 +112,7 @@ def extract_fields_from_document(
             "mrzLine1": 0.995,
             "mrzLine2": 0.995
         }
+        m_box = layout.get("mrz_box") or (0.055, 0.80, 0.89, 0.13)
         bounding_boxes = {
             "name": [31.0, 30.0, 45.0, 6.0],
             "docNumber": [23.0, 19.0, 20.0, 6.0],
@@ -113,7 +120,7 @@ def extract_fields_from_document(
             "dob": [31.0, 42.0, 18.0, 5.0],
             "gender": [58.0, 36.0, 12.0, 5.0],
             "expiryDate": [58.0, 50.0, 18.0, 5.0],
-            "mrz": [5.5, 80.0, 89.0, 13.0]
+            "mrz": [round(m_box[0]*100, 1), round(m_box[1]*100, 1), round(m_box[2]*100, 1), round(m_box[3]*100, 1)]
         }
     else:
         # Layout extraction heuristic for scanned identity documents
@@ -130,7 +137,8 @@ def extract_fields_from_document(
             "expiryDate": "2030-08-15",
             "docType": "PASSPORT",
             "mrzLine1": f"P<IND{inferred_name.replace(' ', '<')}<<<<<<<<<<<<<<<<<<",
-            "mrzLine2": "Z4819203<0IND0008154M3008155<<<<<<<<<<<<<<00"
+            "mrzLine2": "Z4819203<0IND0008154M3008155<<<<<<<<<<<<<<00",
+            "layout_unrecognized": is_layout_unrecognized
         }
         confidence_map = {
             "name": 0.965,
@@ -154,5 +162,7 @@ def extract_fields_from_document(
         "fields": extracted_fields,
         "confidences": confidence_map,
         "bounding_boxes": bounding_boxes,
-        "raw_text": raw_extracted_text
+        "raw_text": raw_extracted_text,
+        "layout_unrecognized": is_layout_unrecognized,
+        "layout_type": layout.get("layout_type", "UNRECOGNIZED")
     }
