@@ -9,6 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.core.limiter import limiter
 from app.core.config import settings
 from app.database import init_database
 from app.api.v1.router import api_router
@@ -37,6 +40,10 @@ app = FastAPI(
         {"name": "Demo Mode & Synthetic Lab", "description": "Pre-configured competition demonstration scenarios"}
     ]
 )
+
+# Register slowapi rate limiting state and exception handler (P2.4)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure Cross-Origin Resource Sharing (CORS) with explicit origin allow-list
 app.add_middleware(

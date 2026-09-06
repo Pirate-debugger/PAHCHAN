@@ -3,9 +3,10 @@ PAHCHAN Document Services API Endpoints
 Provides direct access to OCR, Validation, Forensics, and Cross-Document comparison.
 """
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 from typing import Optional, Dict, Any
 
+from app.core.limiter import limiter
 from app.core.security import validate_upload_file
 from app.services.ocr_service import extract_fields_from_document
 from app.services.validation_service import parse_and_validate_td3
@@ -15,7 +16,9 @@ from app.services.crossdoc_service import cross_validate_documents
 router = APIRouter()
 
 @router.post("/documents/ocr")
+@limiter.limit("60/minute")
 async def extract_document_ocr(
+    request: Request,
     file: UploadFile = File(...),
     mrz_line1: Optional[str] = Form(None),
     mrz_line2: Optional[str] = Form(None)

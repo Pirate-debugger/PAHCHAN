@@ -399,7 +399,8 @@ def analyze_text_tampering(
 
         # Analyze horizontal text line strips for local font weight & contrast inconsistency
         strips = np.array_split(viz_crop, 5, axis=0)
-        strip_stds = [float(np.std(s)) for s in strips if s.size > 0]
+        # Filter strips that contain actual ink/text features (std > 5.0 to ignore blank margins)
+        strip_stds = [float(np.std(s)) for s in strips if s.size > 0 and float(np.std(s)) > 5.0]
         
         if len(strip_stds) >= 2:
             min_std = max(1.0, min(strip_stds))
@@ -420,17 +421,23 @@ def analyze_text_tampering(
         temp_buf.seek(0)
         resaved_viz = Image.open(temp_buf)
         diff_viz = ImageChops.difference(viz_pil, resaved_viz)
-        viz_ela_arr = np.array(diff_viz)
+
+        extrema = diff_viz.getextrema()
+        max_diff = max([ex[1] for ex in extrema]) if extrema else 1
+        scale = 255.0 / max_diff if max_diff < 50 else 10.0
+        diff_enhanced = ImageEnhance.Brightness(diff_viz).enhance(scale)
+
+        viz_ela_arr = np.array(diff_enhanced)
         viz_ela_variance = round(float(np.var(viz_ela_arr)), 2)
 
-        # Flag if font variance ratio across lines is anomalous (> 4.2) and ELA variance is elevated (> 380)
-        is_manipulated = bool(variance_ratio > 4.2 and viz_ela_variance > 380.0)
+        # Flag if font variance ratio across lines is anomalous (> 1.65) or combined with elevated ELA variance
+        is_manipulated = bool(variance_ratio > 1.65 or (variance_ratio > 1.45 and viz_ela_variance > 900.0))
         integrity_score = 25 if is_manipulated else max(75, int(98 - variance_ratio * 3))
 
         if is_manipulated:
-            evidence = f"VIZ font weight variance ratio {variance_ratio} > 4.2 | ELA variance: {viz_ela_variance} (character alteration halo detected)."
+            evidence = f"VIZ font weight variance ratio {variance_ratio:.2f} > 1.65 | ELA variance: {viz_ela_variance} (character alteration halo detected)."
         else:
-            evidence = f"VIZ text rasterization consistent (font variance ratio: {variance_ratio}, ELA: {viz_ela_variance})."
+            evidence = f"VIZ text rasterization consistent (font variance ratio: {variance_ratio:.2f}, ELA: {viz_ela_variance})."
 
         return {
             "text_manipulated": is_manipulated,

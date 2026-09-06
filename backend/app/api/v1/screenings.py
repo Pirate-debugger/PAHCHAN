@@ -3,13 +3,14 @@ PAHCHAN Screening API Endpoints
 Main screening orchestrator combining OCR, validation, forensics, biometrics, and risk engine.
 """
 
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
 from datetime import datetime, timezone
 import uuid
 import json
 
+from app.core.limiter import limiter
 from app.database import get_db
 from app.core.security import validate_upload_file, compute_sha256, get_authenticated_operator, AuthenticatedOperator
 from app.services.ocr_service import extract_fields_from_document
@@ -27,7 +28,9 @@ from app.models.screening import ScreeningSessionModel
 router = APIRouter()
 
 @router.post("/screenings")
+@limiter.limit("60/minute")
 async def execute_full_screening(
+    request: Request,
     doc_file: UploadFile = File(...),
     live_file: Optional[UploadFile] = File(None),
     secondary_doc_file: Optional[UploadFile] = File(None),

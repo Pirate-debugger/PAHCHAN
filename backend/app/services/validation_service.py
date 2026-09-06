@@ -439,6 +439,9 @@ def parse_and_validate_mrz(lines: List[str]) -> Dict[str, Any]:
         else:
             return parse_and_validate_td3(l1, l2)
     elif len(clean_lines) == 1:
-        return parse_and_validate_mrz(clean_lines[0].splitlines())
+        split = [s.strip() for s in clean_lines[0].splitlines() if s.strip()]
+        if len(split) > 1:
+            return parse_and_validate_mrz(split)
+        return parse_and_validate_td3(clean_lines[0], "")
     return parse_and_validate_td3("", "")
 
