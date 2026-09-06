@@ -1,32 +1,39 @@
-# React + TypeScript + Vite
+# PAHCHAN — Frontend Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + TypeScript + Vite + Tailwind CSS interface for the PAHCHAN AI-Assisted Identity and Document Screening Decision Support System.
 
-Currently, two official plugins are available:
+## Quick Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+### 1. Install Dependencies
+```bash
+npm install
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+### 2. Environment Configuration
+Copy the `.env.example` template to `.env.local`:
+```bash
+cp .env.example .env.local
+```
+
+Configurable variables:
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `VITE_API_BASE_URL` | `http://localhost:8000/api/v1` | Base URL for FastAPI screening & forensics backend |
+| `VITE_API_KEY` | `pahchan-secret-api-key-2026` | API authentication key for sensitive endpoints (`/risk/weights`, `/audit/record`, `/screenings`) |
+
+### 3. Run Development Server
+```bash
+npm run dev
+```
+
+### 4. Production Build & Linting
+```bash
+npm run build
+npm run lint
+```
+
+## Features & Workflows
+- **Screening Workstation:** Document bio-page inspection, ELA / Sobel edge anomaly heatmaps, VIZ text variance, SSIM stamp matching, and face verification.
+- **Intelligence Watchlist:** Real-time database query and suspect bulletin management with fuzzy name and document matching.
+- **Cryptographic Audit Trail:** Chronological ledger verifying SHA-256 hash chaining to guarantee immutable inspection history.
+- **Offline Resilience:** Visual alert banners indicate when offline demo or fallback data is active versus live backend verification.

@@ -39,9 +39,14 @@ export function App() {
     file: File;
   } | null>(null);
 
+  const [isDemoFallback, setIsDemoFallback] = useState<boolean>(true);
+  const [backendUnreachable, setBackendUnreachable] = useState<boolean>(false);
+
   // Load a synthetic test case into active session
   const handleLoadTestCase = useCallback((tc: SyntheticTestCase) => {
     setActiveCaseId(tc.id);
+    setIsDemoFallback(true);
+    setBackendUnreachable(false);
     setCurrentSession({
       ...tc.sessionData,
       checkpoint: currentCheckpoint,
@@ -60,7 +65,7 @@ export function App() {
     setIsScreeningScanning(false);
   }, []);
 
-  // Custom document upload handler (Section 14: No Fake Fallbacks)
+  // Custom document upload handler with P1.8 fallback resilience & visible indicator
   const handleCustomUpload = async (file: File) => {
     setUploadError(null);
     setIsScreeningScanning(true);
@@ -75,20 +80,38 @@ export function App() {
         });
         setPastSessions((prev) => [liveResult, ...prev]);
         setActiveCaseId(liveResult.sessionId);
+        setIsDemoFallback(false);
+        setBackendUnreachable(false);
         setActiveTab('workstation');
       } else {
-        setUploadError({
-          title: 'ANALYSIS COULD NOT BE COMPLETED',
-          reason: 'The automated screening backend service did not return an analysis for this file. Please ensure the backend screening server is running and try again.',
-          file
-        });
+        // P1.8 Fallback session when backend is unreachable or returns empty
+        const fallbackSession: ScreeningSession = {
+          ...SYNTHETIC_TEST_CASES[0].sessionData,
+          sessionId: `OFFLINE-DEMO-${Date.now().toString().slice(-4)}`,
+          checkpoint: currentCheckpoint,
+          operatorId: operatorId,
+          documentSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+          documentImageUrl: URL.createObjectURL(file),
+        };
+        setCurrentSession(fallbackSession);
+        setIsDemoFallback(true);
+        setBackendUnreachable(true);
+        setActiveTab('workstation');
       }
     } catch {
-      setUploadError({
-        title: 'ANALYSIS COULD NOT BE COMPLETED',
-        reason: 'A network communication failure occurred with the screening pipeline. Please verify the backend service is operational.',
-        file
-      });
+      // P1.8 Network communication failure fallback
+      const fallbackSession: ScreeningSession = {
+        ...SYNTHETIC_TEST_CASES[0].sessionData,
+        sessionId: `OFFLINE-DEMO-${Date.now().toString().slice(-4)}`,
+        checkpoint: currentCheckpoint,
+        operatorId: operatorId,
+        documentSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        documentImageUrl: URL.createObjectURL(file),
+      };
+      setCurrentSession(fallbackSession);
+      setIsDemoFallback(true);
+      setBackendUnreachable(true);
+      setActiveTab('workstation');
     } finally {
       setIsScreeningScanning(false);
     }
@@ -173,14 +196,47 @@ export function App() {
 
         {/* WORKFLOW 3: SCREENING WORKSTATION (Case Review Workspace) */}
         {activeTab === 'workstation' && (
-          <WorkstationView
-            currentSession={currentSession}
-            onSetDecision={handleSetDecision}
-            onRunScan={handleRunFullScan}
-            onCustomUpload={handleCustomUpload}
-            onOpenReport={() => setShowReportModal(true)}
-            isScanning={isScreeningScanning}
-          />
+          <div className="space-y-4">
+            {/* P1.8 Visible Demo / Fallback Indicator */}
+            {isDemoFallback && (
+              <div
+                id="offline-demo-banner"
+                className={`p-3 rounded-lg border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs ${
+                  backendUnreachable
+                    ? 'bg-rose-50 border-rose-200 text-rose-900'
+                    : 'bg-amber-50 border-amber-200 text-amber-900'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      backendUnreachable
+                        ? 'bg-rose-200 text-rose-900 border border-rose-300'
+                        : 'bg-amber-200 text-amber-900 border border-amber-300'
+                    }`}
+                  >
+                    {backendUnreachable ? 'Backend Unreachable' : 'Offline Demo Data'}
+                  </span>
+                  <span className="font-semibold">
+                    {backendUnreachable
+                      ? 'OFFLINE DEMO DATA — backend unreachable. Results are simulated fallback data and must not be used for live clearance.'
+                      : 'OFFLINE DEMO DATA — viewing synthetic demonstration case. Connect to live backend for automated verification.'}
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono text-slate-500">
+                  Target API: {import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}
+                </span>
+              </div>
+            )}
+            <WorkstationView
+              currentSession={currentSession}
+              onSetDecision={handleSetDecision}
+              onRunScan={handleRunFullScan}
+              onCustomUpload={handleCustomUpload}
+              onOpenReport={() => setShowReportModal(true)}
+              isScanning={isScreeningScanning}
+            />
+          </div>
         )}
 
         {/* WORKFLOW 4: REPORTS */}
