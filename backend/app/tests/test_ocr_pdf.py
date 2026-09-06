@@ -75,6 +75,7 @@ def test_pdf_upload_end_to_end_screening():
     
     response = client.post(
         "/api/v1/screenings",
+        headers={"X-API-Key": "pahchan-secret-api-key-2026"},
         files={"doc_file": ("scanned_passport.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
         data={"doc_type": "PASSPORT"}
     )

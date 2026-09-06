@@ -2,9 +2,10 @@
 PAHCHAN Risk Engine Configuration & Assessment API
 """
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Depends
 from typing import Dict, Any, Optional
 from app.core.config import settings
+from app.core.security import get_authenticated_operator, AuthenticatedOperator
 from app.services.risk_service import calculate_screening_risk
 
 router = APIRouter()
@@ -51,12 +52,16 @@ async def get_risk_weights():
     }
 
 @router.put("/risk/weights")
-async def update_risk_weights(new_weights: Dict[str, int]):
-    """Updates in-memory risk scoring weights."""
+async def update_risk_weights(
+    new_weights: Dict[str, int],
+    auth: AuthenticatedOperator = Depends(get_authenticated_operator)
+):
+    """Updates in-memory risk scoring weights (requires API key authentication)."""
     for k, v in new_weights.items():
         if k in settings.DEFAULT_RISK_WEIGHTS and isinstance(v, int):
             settings.DEFAULT_RISK_WEIGHTS[k] = max(0, min(100, v))
     return {
         "status": "UPDATED",
-        "weights": settings.DEFAULT_RISK_WEIGHTS
+        "weights": settings.DEFAULT_RISK_WEIGHTS,
+        "updated_by": auth.operator_id
     }

@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     PORT: int = 8000
     CORS_ORIGINS: List[str] = ["*"]
     
+    # Authentication (API-Key Gated Write Endpoints)
+    API_KEY: str = "pahchan-secret-api-key-2026"
+    API_KEY_NAME: str = "X-API-Key"
+    
     # Storage & Database
     SQLITE_DB_PATH: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "pahchan_audit.db")
     UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")

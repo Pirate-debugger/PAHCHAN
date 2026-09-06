@@ -11,7 +11,7 @@ import uuid
 import json
 
 from app.database import get_db
-from app.core.security import validate_upload_file, compute_sha256
+from app.core.security import validate_upload_file, compute_sha256, get_authenticated_operator, AuthenticatedOperator
 from app.services.ocr_service import extract_fields_from_document
 from app.services.validation_service import parse_and_validate_td3
 from app.services.forensics_service import run_comprehensive_forensics
@@ -34,12 +34,13 @@ async def execute_full_screening(
     mrz_line2: Optional[str] = Form(None),
     doc_type: str = Form("PASSPORT"),
     checkpoint: str = Form("Raxaul Land Border Checkpoint (Indo-Nepal)"),
-    operator_id: str = Form("OFFICER-SSB-449"),
     face_threshold: float = Form(75.0),
+    auth: AuthenticatedOperator = Depends(get_authenticated_operator),
     db: Session = Depends(get_db)
 ):
     """
-    Full 9-stage screening workflow:
+    Full 9-stage screening workflow (requires API key authentication):
+    Operator ID is securely derived from the authenticated caller.
     1. Ingestion & File validation
     2. OCR & Field extraction
     3. Document & MRZ validation
@@ -54,6 +55,7 @@ async def execute_full_screening(
         # Stage 1: Document Ingestion & Integrity Hash
         doc_bytes, doc_sha256 = await validate_upload_file(doc_file)
         session_id = f"PAHCHAN-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        operator_id = auth.operator_id
         
         # Stage 2: OCR & Field Extraction
         ocr_result = extract_fields_from_document(

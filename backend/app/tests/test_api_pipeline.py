@@ -38,11 +38,14 @@ def test_risk_weights_endpoints():
     assert "weights" in data
     assert "thresholds" in data
 
+API_HEADERS = {"X-API-Key": "pahchan-secret-api-key-2026"}
+
 def test_full_screening_pipeline_endpoint():
     doc_buf = create_test_image()
     live_buf = create_test_image()
     response = client.post(
         "/api/v1/screenings",
+        headers=API_HEADERS,
         files={
             "doc_file": ("test_passport.jpg", doc_buf, "image/jpeg"),
             "live_file": ("test_live.jpg", live_buf, "image/jpeg")
@@ -69,6 +72,7 @@ def test_screening_pipeline_without_live_photo_fails_closed():
     doc_buf = create_test_image()
     response = client.post(
         "/api/v1/screenings",
+        headers=API_HEADERS,
         files={"doc_file": ("test_passport.jpg", doc_buf, "image/jpeg")},
         data={
             "mrz_line1": "P<INDKUMAR<<RAHUL<<<<<<<<<<<<<<<<<<<<<<<<<<<",
@@ -83,4 +87,14 @@ def test_screening_pipeline_without_live_photo_fails_closed():
     assert res_data["face_verification"]["match"] is None
     assert res_data["face_verification"]["similarity"] is None
     assert res_data["risk"]["decision"] == "SECONDARY_INSPECTION"
+
+def test_screening_pipeline_requires_auth():
+    """P0.4: Screening write endpoint must reject unauthenticated requests."""
+    doc_buf = create_test_image()
+    response = client.post(
+        "/api/v1/screenings",
+        files={"doc_file": ("test_passport.jpg", doc_buf, "image/jpeg")},
+        data={"doc_type": "PASSPORT"}
+    )
+    assert response.status_code in (401, 403)
 

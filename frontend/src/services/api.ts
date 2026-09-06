@@ -5,11 +5,13 @@
 
 import type { ScreeningSession } from '../types';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_KEY = import.meta.env.VITE_API_KEY || 'pahchan-secret-api-key-2026';
 
 export async function checkBackendHealth(): Promise<boolean> {
   try {
-    const res = await fetch('http://localhost:8000/api/health');
+    const healthUrl = API_BASE_URL.replace('/api/v1', '/api/health');
+    const res = await fetch(healthUrl);
     return res.ok;
   } catch {
     return false;
@@ -35,6 +37,9 @@ export async function executeScreeningApi(
 
     const res = await fetch(`${API_BASE_URL}/screenings`, {
       method: 'POST',
+      headers: {
+        'X-API-Key': API_KEY,
+      },
       body: formData,
     });
 
