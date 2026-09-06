@@ -242,7 +242,7 @@ export const MOCK_WATCHLIST_RECORDS: WatchlistRecord[] = [
   }
 ];
 
-// Complete 7 SIH Demonstration Test Cases
+// Complete Demonstration Test Cases
 export const SYNTHETIC_TEST_CASES: SyntheticTestCase[] = [
   {
     id: 'case-1-genuine',

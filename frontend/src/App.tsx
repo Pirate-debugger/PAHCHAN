@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { ScreeningSession, SyntheticTestCase, DecisionType } from './types';
+import { SYNTHETIC_TEST_CASES } from './data/mockCases';
+import { executeScreeningApi } from './services/api';
 import { Header } from './components/Header';
 import { OverviewDashboard } from './components/OverviewDashboard';
 import { ScreeningsQueue } from './components/ScreeningsQueue';
@@ -9,20 +12,20 @@ import { SyntheticLab } from './components/SyntheticLab';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ScreeningProgressModal } from './components/ScreeningProgressModal';
 import { AuditReportModal } from './components/AuditReportModal';
-import { SYNTHETIC_TEST_CASES } from './data/mockCases';
-import { executeScreeningApi } from './services/api';
-import type { ScreeningSession, SyntheticTestCase, DecisionType } from './types';
+import { AlertTriangle } from 'lucide-react';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [activeCaseId, setActiveCaseId] = useState<string>(SYNTHETIC_TEST_CASES[0].id);
-  const [currentCheckpoint, setCurrentCheckpoint] = useState<string>('Raxaul Land Border Checkpoint (Indo-Nepal)');
-  const [operatorId] = useState<string>('OFFICER-SSB-449');
+  const [currentCheckpoint, setCurrentCheckpoint] = useState<string>('Raxaul Land Border — Demonstration Environment');
+  const [operatorId] = useState<string>('DEMO-OPERATOR-01');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Initialize with Case 1 (Genuine Republic of India Passport)
+  // Initialize with Case 1 (Genuine Passport)
   const [currentSession, setCurrentSession] = useState<ScreeningSession>({
     ...SYNTHETIC_TEST_CASES[0].sessionData,
+    checkpoint: 'Raxaul Land Border — Demonstration Environment',
+    operatorId: 'DEMO-OPERATOR-01',
     documentImageUrl: SYNTHETIC_TEST_CASES[0].documentImage,
     liveFaceImageUrl: SYNTHETIC_TEST_CASES[0].liveFaceImage,
   });
@@ -30,6 +33,11 @@ export function App() {
   const [isScreeningScanning, setIsScreeningScanning] = useState<boolean>(false);
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
   const [pastSessions, setPastSessions] = useState<ScreeningSession[]>([]);
+  const [uploadError, setUploadError] = useState<{
+    title: string;
+    reason: string;
+    file: File;
+  } | null>(null);
 
   // Load a synthetic test case into active session
   const handleLoadTestCase = useCallback((tc: SyntheticTestCase) => {
@@ -37,10 +45,11 @@ export function App() {
     setCurrentSession({
       ...tc.sessionData,
       checkpoint: currentCheckpoint,
+      operatorId: operatorId,
       documentImageUrl: tc.documentImage,
       liveFaceImageUrl: tc.liveFaceImage,
     });
-  }, [currentCheckpoint]);
+  }, [currentCheckpoint, operatorId]);
 
   // Run AI Re-Screening Scan
   const handleRunFullScan = useCallback(() => {
@@ -51,137 +60,38 @@ export function App() {
     setIsScreeningScanning(false);
   }, []);
 
-  // Custom document upload handler
+  // Custom document upload handler (Section 14: No Fake Fallbacks)
   const handleCustomUpload = async (file: File) => {
+    setUploadError(null);
     setIsScreeningScanning(true);
-    
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const dataUri = e.target?.result as string;
-      
-      const fallbackSession: ScreeningSession = {
-        sessionId: `PCH-UPL-${Date.now().toString().slice(-4)}`,
-        timestamp: new Date().toLocaleDateString('en-IN') + ' ' + new Date().toLocaleTimeString('en-IN', { hour12: false }) + ' IST',
-        operatorId: operatorId,
-        checkpoint: currentCheckpoint,
-        documentType: 'PASSPORT',
-        documentImageUrl: dataUri,
-        documentSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-        fields: {
-          name: file.name.replace(/\.[^/.]+$/, '').toUpperCase(),
-          docNumber: 'Z' + Math.floor(1000000 + Math.random() * 9000000),
-          nationality: 'IND',
-          dob: '1996-08-15',
-          expiryDate: '2030-08-15',
-          gender: 'MALE',
-          docType: 'PASSPORT',
-          mrzLine1: 'P<IND' + file.name.replace(/\.[^/.]+$/, '').toUpperCase() + '<<<<<<<<<<<<<<<',
-          mrzLine2: 'Z8910294<2IND9608151M3008158<<<<<<<<<<<<<<02',
-          fieldConfidences: {
-            name: 0.982,
-            docNumber: 0.991,
-            nationality: 0.995,
-            dob: 0.988,
-            expiryDate: 0.994,
-            gender: 0.990
-          }
-        },
-        validation: {
-          isValid: true,
-          isExpired: false,
-          isDobValid: true,
-          isFormatValid: true,
-          mrzChecksumPass: true,
-          mrzDetails: {
-            docNumberValid: true,
-            dobValid: true,
-            expiryValid: true,
-            compositeValid: true,
-            calculatedChecksums: { doc: 0, dob: 4, expiry: 5, composite: 0 },
-            expectedChecksums: { doc: 0, dob: 4, expiry: 5, composite: 0 }
-          },
-          issues: [],
-          normalizedFields: {}
-        },
-        tampering: {
-          photoIntegrityScore: 95,
-          textIntegrityScore: 98,
-          stampIntegrityScore: 96,
-          metadataIntegrityScore: 99,
-          photoReplaced: false,
-          textManipulated: false,
-          stampForged: false,
-          metadataAnomalous: false,
-          summaryNotes: ['Document substrate fibers and halftone pattern continuous.'],
-          elaVariance: 5.4,
-          regions: [
-            {
-              id: 'reg-custom-photo',
-              name: 'PORTRAIT SUBSTRATE',
-              title: 'Facial Portrait Region',
-              type: 'PHOTO',
-              status: 'VALID',
-              x: 5,
-              y: 20,
-              width: 28,
-              height: 52,
-              explanation: 'Substrate fiber texture and halftone pattern continuous with main page.',
-              riskScore: 0,
-              metrics: {
-                elaVariance: 5.4,
-                edgeDiscontinuity: 0.16
-              }
-            }
-          ]
-        },
-        faceVerification: {
-          match: true,
-          similarity: 92.4,
-          confidence: 0.96,
-          threshold: 75.0,
-          status: 'MATCH',
-          liveDetected: true,
-          landmarksDetected: true,
-          notes: 'Biometric landmark alignment consistent.'
-        },
-        crossField: { match: true, mismatches: [] },
-        watchlistHit: null,
-        riskFactors: [],
-        totalRiskScore: 8,
-        riskLevel: 'LOW',
-        decision: 'CLEAR_ENTRY',
-        operatorNotes: 'Custom document ingested for inspection.',
-        explainability: {
-          whatHappened: 'Custom document uploaded and screened against OCR extraction, ICAO checksum verification, and ELA image forensics.',
-          whyIsItRisky: ['Document conforms to baseline security expectations.'],
-          supportingEvidence: ['ELA variance 5.4 | Edge discontinuity 0.18 | MRZ checksum valid'],
-          officerRecommendation: 'Standard review. Clear passenger for standard entry.'
-        }
-      };
 
-      try {
-        const liveResult = await executeScreeningApi(file);
-        if (liveResult) {
-          setCurrentSession({
-            ...liveResult,
-            checkpoint: currentCheckpoint,
-            documentImageUrl: dataUri,
-          });
-          setPastSessions((prev) => [liveResult, ...prev]);
-        } else {
-          setCurrentSession(fallbackSession);
-          setPastSessions((prev) => [fallbackSession, ...prev]);
-        }
-      } catch {
-        setCurrentSession(fallbackSession);
-        setPastSessions((prev) => [fallbackSession, ...prev]);
-      } finally {
-        setIsScreeningScanning(false);
-        setActiveCaseId('custom-doc');
+    try {
+      const liveResult = await executeScreeningApi(file);
+      if (liveResult) {
+        setCurrentSession({
+          ...liveResult,
+          checkpoint: currentCheckpoint,
+          operatorId: operatorId,
+        });
+        setPastSessions((prev) => [liveResult, ...prev]);
+        setActiveCaseId(liveResult.sessionId);
         setActiveTab('workstation');
+      } else {
+        setUploadError({
+          title: 'ANALYSIS COULD NOT BE COMPLETED',
+          reason: 'The automated screening backend service did not return an analysis for this file. Please ensure the backend screening server is running and try again.',
+          file
+        });
       }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      setUploadError({
+        title: 'ANALYSIS COULD NOT BE COMPLETED',
+        reason: 'A network communication failure occurred with the screening pipeline. Please verify the backend service is operational.',
+        file
+      });
+    } finally {
+      setIsScreeningScanning(false);
+    }
   };
 
   const handleSetDecision = useCallback((decision: DecisionType) => {
@@ -191,34 +101,30 @@ export function App() {
     }));
   }, []);
 
-  // Keyboard shortcut listener for fast operator screening
+  // Safe keyboard shortcut listener (Section 37: No unexpected single-letter decisions)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
         return;
       }
-      const key = e.key.toLowerCase();
-      if (key >= '1' && key <= '8') {
-        const idx = parseInt(key, 10) - 1;
-        if (SYNTHETIC_TEST_CASES[idx]) {
-          handleLoadTestCase(SYNTHETIC_TEST_CASES[idx]);
-          setActiveTab('workstation');
-        }
-      } else if (key === 'r') {
-        handleRunFullScan();
-      } else if (key === 'd') {
-        setShowReportModal(true);
-      } else if (key === 'c') {
-        handleSetDecision('CLEAR_ENTRY');
-      } else if (key === 's') {
-        handleSetDecision('SECONDARY_INSPECTION');
-      } else if (key === 'a') {
-        handleSetDecision('DETAIN_ALERT');
+      
+      // Ctrl+K or Cmd+K: Focus Global Search
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+        if (searchInput) searchInput.focus();
+      }
+
+      // Escape: Dismiss any open modal
+      if (e.key === 'Escape') {
+        setShowReportModal(false);
+        setUploadError(null);
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleLoadTestCase, handleRunFullScan, handleSetDecision]);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans antialiased">
@@ -334,6 +240,46 @@ export function App() {
           onClose={() => setShowReportModal(false)}
           session={currentSession}
         />
+      )}
+
+      {/* Upload Error Modal (Section 14: Defensible Failure Handling) */}
+      {uploadError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-lg border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">{uploadError.title}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">File: {uploadError.file.name}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded border border-slate-200">
+              <strong>Reason:</strong> {uploadError.reason}
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setUploadError(null)}
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-medium transition-colors"
+              >
+                Try Another Document
+              </button>
+              <button
+                onClick={() => {
+                  const retryFile = uploadError.file;
+                  setUploadError(null);
+                  handleCustomUpload(retryFile);
+                }}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold shadow-xs transition-colors"
+              >
+                Retry Analysis
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

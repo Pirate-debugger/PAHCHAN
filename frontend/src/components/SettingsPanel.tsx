@@ -33,11 +33,11 @@ const DEFAULT_WEIGHT_CONFIGS: RiskWeightConfig[] = [
 ];
 
 const CHECKPOINTS = [
-  { id: 'raxaul', name: 'Raxaul Land Border Checkpoint (Indo-Nepal)', region: 'Indo-Nepal Border (SSB)' },
-  { id: 'attari', name: 'Attari-Wagah Integrated Check Post', region: 'Indo-Pakistan Border (BSF/BOI)' },
-  { id: 'petrapole', name: 'Petrapole Integrated Check Post', region: 'Indo-Bangladesh Border (BOI)' },
-  { id: 'delhi', name: 'Indira Gandhi Int’l Airport (T3)', region: 'Bureau of Immigration (MHA)' },
-  { id: 'mumbai', name: 'CSM International Airport (T2)', region: 'Bureau of Immigration (MHA)' }
+  { id: 'raxaul', name: 'Raxaul Land Border — Demonstration Environment', region: 'Demonstration Environment' },
+  { id: 'attari', name: 'Attari-Wagah Check Post — Demonstration Environment', region: 'Demonstration Environment' },
+  { id: 'petrapole', name: 'Petrapole Check Post — Demonstration Environment', region: 'Demonstration Environment' },
+  { id: 'delhi', name: 'IGI Airport Terminal 3 — Demonstration Environment', region: 'Demonstration Environment' },
+  { id: 'mumbai', name: 'CSM Airport Terminal 2 — Demonstration Environment', region: 'Demonstration Environment' }
 ];
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({

@@ -89,7 +89,7 @@ export const AuditReportModal: React.FC<AuditReportModalProps> = ({ session, onC
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-lg font-bold tracking-tight text-slate-900">PAHCHAN</span>
-                <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold uppercase tracking-wider">Prototype &bull; SIH 2026</span>
+                <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold uppercase tracking-wider">Evaluation Prototype</span>
               </div>
               <p className="text-xs text-slate-500 mt-1">AI-Assisted Identity &amp; Document Screening System</p>
               <p className="text-xs text-slate-400">Department: Sashastra Seema Bal / Police II Division (Demonstration Environment)</p>

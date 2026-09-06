@@ -125,7 +125,7 @@ export const SyntheticLab: React.FC<SyntheticLabProps> = ({
           </span>
         </div>
         <span className="text-[11px] text-amber-700">
-          Standardized for SIH 2026 Jury Review
+          Standardized Evaluation Benchmark Suite
         </span>
       </div>
 

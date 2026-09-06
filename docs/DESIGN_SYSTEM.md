@@ -91,8 +91,8 @@ PAHCHAN is engineered to feel like a high-precision, trustworthy case management
 
 ### 3.1 Header & Top Navigation
 - **Height:** `56px` (`h-14`), sticky top with white background and subtle bottom border (`border-b border-slate-200`).
-- **Brand Element:** "PAHCHAN" (`font-bold text-slate-900 tracking-wide`), Subtitle: "Identity & Document Screening", and subtle badge: `Prototype • SIH 2026`.
-- **Center / Quick Actions:** Compact search box (`Search case ID or document number...`), duty post label (e.g. *Raxaul Land Border*), officer profile badge (*Officer SSB-449*).
+- **Brand Element:** "PAHCHAN" (`font-bold text-slate-900 tracking-wide`), Subtitle: "Identity & Document Screening", and subtle badge: `Prototype • Demonstration Environment`.
+- **Center / Quick Actions:** Compact search box (`Search case ID or document number...`), duty post label (e.g. *Raxaul Land Border — Demonstration Environment*), officer profile badge (*DEMO-OPERATOR-01*).
 - **Eliminated Header Noise:** Clocks, audio toggles, blinking API pings, and scenario switchers are removed from the global header.
 
 ### 3.2 Primary Workflow Navigation

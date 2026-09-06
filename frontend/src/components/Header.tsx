@@ -57,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
                   Identity &amp; Document Screening
                 </span>
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                  Prototype • SIH 2026
+                  Prototype • Demonstration Environment
                 </span>
               </div>
             </div>

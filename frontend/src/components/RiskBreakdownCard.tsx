@@ -206,7 +206,7 @@ export const RiskBreakdownCard: React.FC<RiskBreakdownCardProps> = ({
         </span>
         <p className="text-xs font-medium text-slate-800 leading-relaxed">
           {explainability?.officerRecommendation || (
-            isLow ? 'Standard review. Clear passenger for standard entry.' : 'Secondary physical inspection advised.'
+            isLow ? 'Recommendation: Standard review. No anomaly detected.' : 'Recommendation: Secondary review advised.'
           )}
         </p>
       </div>
@@ -226,7 +226,7 @@ export const RiskBreakdownCard: React.FC<RiskBreakdownCardProps> = ({
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
             }`}
           >
-            Confirm Clear
+            Standard Review
           </button>
 
           <button
@@ -237,7 +237,7 @@ export const RiskBreakdownCard: React.FC<RiskBreakdownCardProps> = ({
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'
             }`}
           >
-            Secondary
+            Secondary Review
           </button>
 
           <button
@@ -248,7 +248,7 @@ export const RiskBreakdownCard: React.FC<RiskBreakdownCardProps> = ({
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
             }`}
           >
-            Escalate / Hold
+            Escalate Review
           </button>
         </div>
       </div>
