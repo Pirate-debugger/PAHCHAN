@@ -1,179 +1,166 @@
-export type DocumentType = 'PASSPORT' | 'VISA' | 'NATIONAL_ID' | 'DRIVING_LICENSE' | 'PERMIT';
+export type RiskLevel = 'LOW' | 'REVIEW' | 'HIGH' | 'CRITICAL' | 'PENDING';
+export type SessionStatus = 'PENDING' | 'IN_REVIEW' | 'COMPLETED' | 'ESCALATED';
+export type OfficerDecisionType = 'STANDARD_REVIEW' | 'SECONDARY_REVIEW' | 'ESCALATE' | 'INCONCLUSIVE';
 
-export type RiskLevel = 'LOW' | 'MEDIUM' | 'CRITICAL';
-
-export type DecisionType = 'CLEAR_ENTRY' | 'SECONDARY_INSPECTION' | 'DETAIN_ALERT' | 'PENDING';
-
-export interface RiskFactor {
+export interface DocumentItem {
   id: string;
-  category: 'OCR' | 'VALIDATION' | 'PHOTO_TAMPERING' | 'TEXT_TAMPERING' | 'STAMP_TAMPERING' | 'METADATA' | 'FACE_BIOMETRIC' | 'CROSS_FIELD' | 'WATCHLIST';
-  title: string;
-  points: number;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  description: string;
-  evidence: string;
-  regionId?: string;
+  category: 'PRIMARY_DOCUMENT' | 'PRESENTED_PHOTO' | 'SECONDARY_VISA';
+  filename: string;
+  url: string;
+  mime_type: string;
+  file_size: number;
+  width: number;
+  height: number;
+  is_synthetic: boolean;
 }
 
-export interface DocumentFields {
-  name: string;
-  docNumber: string;
-  nationality: string;
-  dob: string;
-  expiryDate: string;
-  gender: string;
-  issueDate?: string;
-  docType: DocumentType;
-  visaNumber?: string;
-  visaType?: string;
-  entryValidation?: string;
-  stayDuration?: string;
-  mrzLine1?: string;
-  mrzLine2?: string;
-  mrzLine3?: string;
-  rawText?: string;
-  fieldConfidences?: Record<string, number>;
+export interface ExtractedField {
+  id: string;
+  field_key: string;
+  field_label: string;
+  field_value: string | null;
+  original_value: string | null;
+  confidence: number;
+  bbox_ymin: number | null;
+  bbox_xmin: number | null;
+  bbox_ymax: number | null;
+  bbox_xmax: number | null;
+  is_edited: boolean;
+  source_zone: string;
 }
 
 export interface ValidationResult {
-  isValid: boolean;
-  isExpired: boolean;
-  isDobValid: boolean;
-  isFormatValid: boolean;
-  mrzChecksumPass: boolean;
-  mrzDetails: {
-    docNumberValid: boolean;
-    dobValid: boolean;
-    expiryValid: boolean;
-    compositeValid: boolean;
-    calculatedChecksums: Record<string, number>;
-    expectedChecksums: Record<string, number>;
-  };
-  issues: string[];
-  normalizedFields: Record<string, string>;
+  id: string;
+  rule_id: string;
+  rule_name: string;
+  category: 'CHECKSUM' | 'CHRONOLOGY' | 'FORMAT' | 'CONSISTENCY' | 'EXPIRY' | 'WATCHLIST';
+  status: 'PASS' | 'FAIL' | 'WARNING' | 'NOT_APPLICABLE';
+  message: string;
+  details?: string;
+  risk_points: number;
 }
 
-export interface ForensicRegion {
+export interface ForensicFinding {
   id: string;
-  name: string;
-  type: 'PHOTO' | 'TEXT' | 'STAMP' | 'METADATA' | 'MRZ';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  riskScore: number;
-  status: 'VALID' | 'WARNING' | 'ALERT';
+  category: 'PHOTO_ALTERATION' | 'TEXT_MANIPULATION' | 'STAMP_FORGERY' | 'METADATA_ANOMALY' | 'IDENTITY_CONSISTENCY';
+  severity: 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   title: string;
   explanation: string;
-  evidence?: string;
-  metrics: {
-    elaVariance?: number;
-    edgeDiscontinuity?: number;
-    noiseIndex?: number;
-    ssimMatch?: number;
-    fontConsistency?: number;
-  };
-  cropUrl?: string;
+  evidence_preview_url?: string;
+  heatmap_overlay_url?: string;
+  bbox_ymin?: number;
+  bbox_xmin?: number;
+  bbox_ymax?: number;
+  bbox_xmax?: number;
+  technical_details?: string;
+  risk_contribution: number;
 }
 
-export interface TamperingAnalysis {
-  photoIntegrityScore: number;
-  textIntegrityScore: number;
-  stampIntegrityScore: number;
-  metadataIntegrityScore: number;
-  photoReplaced: boolean;
-  textManipulated: boolean;
-  stampForged: boolean;
-  metadataAnomalous: boolean;
-  softwareDetected?: string;
-  metadataTags?: Record<string, string>;
-  regions: ForensicRegion[];
-  summaryNotes: string[];
-  elaImageUrl?: string;
-  elaVariance?: number;
-}
-
-export interface FaceVerificationResult {
-  match: boolean | null;
-  similarity: number | null;
-  confidence: number;
-  threshold: number;
-  status: 'MATCH' | 'INCONCLUSIVE' | 'MISMATCH' | 'NO_FACE_DETECTED' | 'MULTIPLE_FACES' | 'NO_LIVE_CAPTURE';
-  liveDetected: boolean;
-  landmarksDetected: boolean;
-  notes: string;
-}
-
-export interface CrossFieldResult {
-  match: boolean;
-  mismatches: Array<{
-    field: string;
-    source1: string;
-    value1: string;
-    source2: string;
-    value2: string;
-    severity: 'critical' | 'high' | 'medium';
-    description: string;
-  }>;
-}
-
-export interface WatchlistRecord {
+export interface FaceVerification {
   id: string;
-  fullName: string;
-  aliases?: string[];
-  docNumber: string;
-  nationality: string;
-  dob: string;
-  riskCategory: 'TERRORISM' | 'HUMAN_TRAFFICKING' | 'FINANCIAL_CRIME' | 'IMMIGRATION_VIOLATION' | 'INTERPOL_RED_NOTICE';
-  flaggedBy: 'SSB Intelligence' | 'MHA Bureau of Immigration' | 'INTERPOL' | 'State Police CID';
-  severity: 'CRITICAL' | 'HIGH';
-  alertNotes: string;
-  dateAdded: string;
-  photoUrl?: string;
+  portrait_url?: string;
+  presented_url?: string;
+  outcome: 'MATCH_SIGNAL' | 'REVIEW' | 'MISMATCH_SIGNAL' | 'UNABLE_TO_ASSESS';
+  similarity_score: number;
+  quality_score: number;
+  quality_assessment?: string;
+  explanation: string;
+  recommendation: string;
+  risk_contribution: number;
 }
 
-export interface ExplainabilityDossier {
-  whatHappened: string;
-  whyIsItRisky: string[];
-  supportingEvidence: string[];
-  officerRecommendation: string;
-}
-
-export interface ScreeningSession {
-  sessionId: string;
-  timestamp: string;
-  operatorId: string;
-  checkpoint: string;
-  documentType: DocumentType;
-  documentImageUrl: string;
-  documentSha256?: string;
-  liveFaceImageUrl?: string;
-  fields: DocumentFields;
-  validation: ValidationResult;
-  tampering: TamperingAnalysis;
-  faceVerification?: FaceVerificationResult;
-  crossField: CrossFieldResult;
-  watchlistHit?: WatchlistRecord | null;
-  riskFactors: RiskFactor[];
-  totalRiskScore: number;
-  riskLevel: RiskLevel;
-  decision: DecisionType;
-  operatorNotes?: string;
-  explainability?: ExplainabilityDossier;
-}
-
-export interface SyntheticTestCase {
-  id: string;
-  caseNumber: number;
+export interface ContributingFactor {
   title: string;
-  tagline: string;
-  category: 'GENUINE' | 'PHOTO_TAMPER' | 'TEXT_TAMPER' | 'STAMP_TAMPER' | 'FACE_MISMATCH' | 'EXPIRED_METADATA' | 'CROSS_DOC_MISMATCH' | 'MULTIPLE_RISK';
-  expectedRiskLevel: RiskLevel;
-  expectedScoreRange: [number, number];
+  category: string;
+  points: number;
+  severity: string;
+}
+
+export interface RiskAssessment {
+  id: string;
+  total_score: number;
+  risk_level: RiskLevel;
+  primary_concern?: string;
+  recommendation: string;
+  contributing_factors?: ContributingFactor[];
+}
+
+export interface ScreeningDecision {
+  id: string;
+  decision: OfficerDecisionType;
+  officer_id: string;
+  officer_name: string;
+  notes?: string;
+  decided_at: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  session_id?: string;
+  actor: string;
+  action: string;
+  details?: string;
+}
+
+export interface ScreeningSessionSummary {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  status: SessionStatus;
+  document_type: string;
+  risk_level: RiskLevel;
+  total_score: number;
+  primary_concern?: string;
+  recommendation?: string;
+  decision?: OfficerDecisionType;
+  is_demo_scenario: boolean;
+  demo_scenario_id?: string;
+}
+
+export interface ScreeningSessionDetail {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  status: SessionStatus;
+  document_type: string;
+  officer_notes?: string;
+  is_demo_scenario: boolean;
+  demo_scenario_id?: string;
+  documents: DocumentItem[];
+  extracted_fields: ExtractedField[];
+  validations: ValidationResult[];
+  forensic_findings: ForensicFinding[];
+  face_verification?: FaceVerification;
+  risk_assessment?: RiskAssessment;
+  decisions: ScreeningDecision[];
+  audit_logs: AuditLogEntry[];
+}
+
+export interface DemoScenario {
+  id: string;
+  title: string;
+  scenario_type: string;
   description: string;
-  documentImage: string;
-  liveFaceImage: string;
-  visaImage?: string;
-  fields: DocumentFields;
-  sessionData: ScreeningSession;
+  expected_risk_level: RiskLevel;
+  primary_anomaly: string;
+  document_type: string;
+  preview_url?: string;
+}
+
+export interface WorkSummaryStats {
+  pending_reviews: number;
+  high_priority_reviews: number;
+  completed_today: number;
+  total_screenings: number;
+}
+
+export interface SystemSettings {
+  risk_threshold_low: number;
+  risk_threshold_review: number;
+  risk_threshold_high: number;
+  enable_demo_watchlist: boolean;
+  demo_watchlist_name: string;
+  ocr_engine: string;
+  face_quality_threshold: number;
 }

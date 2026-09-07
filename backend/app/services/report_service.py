@@ -1,57 +1,95 @@
-"""
-PAHCHAN Screening Report Generation Service
-Generates official government-ready forensic dossiers with complete cryptographic audit chains.
-"""
-
-from typing import Dict, Any
-from datetime import datetime
 import hashlib
+import json
+from datetime import datetime, timezone
+from typing import Dict, Any
+from sqlalchemy.orm import Session
+from app.models.screening import ScreeningSession, ScreeningDecision
 
-def generate_screening_report(session_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Assembles an official screening report with audit fingerprint.
-    """
-    session_id = session_data.get("session_id") or session_data.get("sessionId", "SSB-REP-001")
-    sha256 = session_data.get("document_sha256") or session_data.get("documentSha256", "UNKNOWN")
-    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-    
-    # Generate cryptographic audit hash of the report content
-    report_digest_raw = f"{session_id}|{sha256}|{now_str}|{session_data.get('total_risk_score') or session_data.get('totalRiskScore', 0)}"
-    audit_hash = hashlib.sha256(report_digest_raw.encode("utf-8")).hexdigest()
+class ReportService:
+    @staticmethod
+    def generate_report_data(db: Session, session: ScreeningSession) -> Dict[str, Any]:
+        """
+        Assemble comprehensive official screening report.
+        """
+        latest_decision = session.decisions[-1] if session.decisions else None
 
-    risk_info = session_data.get("risk", {})
-    total_risk = risk_info.get("total_risk_score") or session_data.get("totalRiskScore", 0)
-    risk_level = risk_info.get("risk_level") or session_data.get("riskLevel", "LOW")
-    decision = risk_info.get("decision") or session_data.get("decision", "CLEAR_ENTRY")
+        report_payload = {
+            "report_id": f"REP-{session.id}",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "organization": "MINISTRY OF HOME AFFAIRS / SASHASTRA SEEMA BAL (SSB)",
+            "unit": "Police II Division — Border Checkpoint Screening Unit",
+            "case_id": session.id,
+            "screening_date": session.created_at.isoformat(),
+            "document_type": session.document_type,
+            "session_status": session.status,
+            "is_synthetic_demonstration": session.is_demo_scenario,
+            "extracted_identity": {
+                f.field_key: {
+                    "label": f.field_label,
+                    "value": f.field_value,
+                    "confidence": f.confidence,
+                    "is_edited": f.is_edited
+                } for f in session.extracted_fields
+            },
+            "validations": [
+                {
+                    "rule_id": v.rule_id,
+                    "rule_name": v.rule_name,
+                    "status": v.status,
+                    "message": v.message,
+                    "points": v.risk_points
+                } for v in session.validations
+            ],
+            "forensic_findings": [
+                {
+                    "id": f.id,
+                    "title": f.title,
+                    "category": f.category,
+                    "severity": f.severity,
+                    "explanation": f.explanation,
+                    "risk_contribution": f.risk_contribution,
+                    "evidence_url": f.evidence_preview_path,
+                    "heatmap_url": f.heatmap_overlay_path
+                } for f in session.forensic_findings
+            ],
+            "face_verification": {
+                "outcome": session.face_verification.outcome if session.face_verification else "NOT_PERFORMED",
+                "similarity_score": session.face_verification.similarity_score if session.face_verification else 0.0,
+                "explanation": session.face_verification.explanation if session.face_verification else "No presented photograph compared.",
+                "recommendation": session.face_verification.recommendation if session.face_verification else ""
+            } if session.face_verification else None,
+            "risk_assessment": {
+                "total_score": session.risk_assessment.total_score if session.risk_assessment else 0,
+                "risk_level": session.risk_assessment.risk_level if session.risk_assessment else "LOW",
+                "primary_concern": session.risk_assessment.primary_concern if session.risk_assessment else "None",
+                "recommendation": session.risk_assessment.recommendation if session.risk_assessment else "Continue standard verification."
+            } if session.risk_assessment else None,
+            "officer_decision": {
+                "decision": latest_decision.decision if latest_decision else "PENDING",
+                "officer_name": latest_decision.officer_name if latest_decision else "Pending Review",
+                "officer_id": latest_decision.officer_id if latest_decision else "N/A",
+                "notes": latest_decision.notes if latest_decision else None,
+                "decided_at": latest_decision.decided_at.isoformat() if latest_decision else None
+            } if latest_decision else None,
+            "audit_trail_summary": [
+                {
+                    "timestamp": a.timestamp.isoformat(),
+                    "actor": a.actor,
+                    "action": a.action,
+                    "details": a.details
+                } for a in session.audit_logs
+            ]
+        }
 
-    fields = session_data.get("fields", {})
-    validation = session_data.get("validation", {})
-    forensics = session_data.get("forensics") or session_data.get("tampering", {})
-    face = session_data.get("face_verification") or session_data.get("faceVerification", {})
-    explainability = risk_info.get("explainability", {})
+        # Generate cryptographic audit hash for verifiable chain of custody
+        serialized = json.dumps(report_payload, sort_keys=True)
+        audit_hash = hashlib.sha256(serialized.encode('utf-8')).hexdigest()
+        report_payload["security_seal"] = {
+            "audit_hash": f"SHA256:{audit_hash}",
+            "verification_status": "AUTHENTICATED_LOCAL_AUDIT_RECORD",
+            "prototype_disclaimer": "PROTOTYPE DEMONSTRATION SCREENING REPORT — NOT AN OFFICIAL GOVERNMENT DOCUMENT"
+        }
 
-    return {
-        "session_id": session_id,
-        "generated_at": now_str,
-        "classification": "OFFICIAL GOVERNMENT SCREENING DOSSIER — MHA / SSB / BOI",
-        "document_type": session_data.get("document_type") or session_data.get("documentType", "PASSPORT"),
-        "document_sha256": sha256,
-        "operator_id": session_data.get("operator_id") or session_data.get("operatorId", "OFFICER-SSB-449"),
-        "checkpoint": session_data.get("checkpoint", "Raxaul Land Border Checkpoint (Indo-Nepal)"),
-        "summary_verdict": f"{risk_level} RISK — {decision}",
-        "total_risk_score": total_risk,
-        "risk_level": risk_level,
-        "decision": decision,
-        "officer_action": risk_info.get("recommendation") or session_data.get("recommendation", "Clear passenger."),
-        "fields": fields,
-        "validation_findings": validation.get("issues", []),
-        "forensic_findings": forensics.get("regions", []),
-        "face_result": face,
-        "risk_factors": risk_info.get("risk_factors") or session_data.get("riskFactors", []),
-        "explainability": explainability,
-        "audit_hash": audit_hash,
-        "disclaimer": (
-            "NOTICE: PAHCHAN is an AI-assisted decision-support system designed to aid authorized border officers. "
-            "Findings represent algorithmic screening signals and require physical verification under standard operating procedures."
-        )
-    }
+        return report_payload
+
+report_service = ReportService()

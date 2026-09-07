@@ -1,148 +1,175 @@
-"""
-Pydantic Data Contracts for PAHCHAN API
-"""
+from typing import Optional, List, Any
+from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict
 
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+class BoundingBox(BaseModel):
+    ymin: float
+    xmin: float
+    ymax: float
+    xmax: float
 
-class ExtractedFieldSchema(BaseModel):
-    key: str
-    value: str
-    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
-    is_valid: bool = True
-    bounding_box: Optional[List[float]] = None  # [x, y, w, h] in percentages
+class ExtractedFieldBase(BaseModel):
+    field_key: str
+    field_label: str
+    field_value: Optional[str] = None
+    original_value: Optional[str] = None
+    confidence: float = 1.0
+    bbox_ymin: Optional[float] = None
+    bbox_xmin: Optional[float] = None
+    bbox_ymax: Optional[float] = None
+    bbox_xmax: Optional[float] = None
+    is_edited: bool = False
+    source_zone: str = "VIZ"
 
-class ForensicRegionSchema(BaseModel):
+class ExtractedFieldResponse(ExtractedFieldBase):
     id: str
-    name: str
-    type: str  # PHOTO, TEXT, STAMP, METADATA
-    x: float
-    y: float
-    width: float
-    height: float
-    risk_score: int
-    status: str  # VALID, ALERT, SUSPICIOUS
-    title: str
-    explanation: str
-    evidence: Optional[str] = None
-    metrics: Optional[Dict[str, Any]] = None
+    model_config = ConfigDict(from_attributes=True)
 
-class MRZChecksumDetails(BaseModel):
-    doc_number_valid: bool = True
-    dob_valid: bool = True
-    expiry_valid: bool = True
-    composite_valid: bool = True
-    calculated_checksums: Dict[str, int] = {}
-    expected_checksums: Dict[str, int] = {}
+class EditFieldRequest(BaseModel):
+    new_value: str
+    officer_notes: Optional[str] = None
 
-class ValidationResultSchema(BaseModel):
-    is_valid: bool = True
-    is_expired: bool = False
-    is_dob_valid: bool = True
-    is_format_valid: bool = True
-    mrz_checksum_pass: bool = True
-    mrz_details: MRZChecksumDetails = MRZChecksumDetails()
-    issues: List[str] = []
-    normalized_fields: Dict[str, str] = {}
+class ValidationResultResponse(BaseModel):
+    id: str
+    rule_id: str
+    rule_name: str
+    category: str
+    status: str
+    message: str
+    details: Optional[str] = None
+    risk_points: int = 0
+    model_config = ConfigDict(from_attributes=True)
 
-class ForensicAnalysisResultSchema(BaseModel):
-    ela_base64: str = ""
-    ela_variance: float = 0.0
-    max_difference: int = 0
-    photo_integrity_score: int = 100
-    text_integrity_score: int = 100
-    stamp_integrity_score: int = 100
-    metadata_integrity_score: int = 100
-    photo_replaced: bool = False
-    text_manipulated: bool = False
-    stamp_forged: bool = False
-    metadata_anomalous: bool = False
-    software_detected: Optional[str] = None
-    regions: List[ForensicRegionSchema] = []
-    summary_notes: List[str] = []
-
-class FaceVerificationResultSchema(BaseModel):
-    match: Optional[bool] = None
-    similarity: Optional[float] = None
-    confidence: Optional[float] = None
-    threshold: float = 75.0
-    status: str = "NO_LIVE_CAPTURE"  # MATCH, MISMATCH, NO_FACE_DETECTED, NO_LIVE_CAPTURE
-    live_detected: bool = False
-    landmarks_detected: bool = False
-    notes: str = "Biometric face verification skipped or pending live photo capture."
-
-class CrossFieldMismatchSchema(BaseModel):
-    field: str
-    source1: str
-    value1: str
-    source2: str
-    value2: str
-    severity: str = "critical"
-    description: str
-
-class CrossDocumentResultSchema(BaseModel):
-    match: bool = True
-    mismatches: List[CrossFieldMismatchSchema] = []
-
-class RiskFactorSchema(BaseModel):
+class ForensicFindingResponse(BaseModel):
     id: str
     category: str
+    severity: str
     title: str
-    points: int
-    severity: str  # low, medium, high, critical
-    description: str
-    evidence: str
+    explanation: str
+    evidence_preview_url: Optional[str] = None
+    heatmap_overlay_url: Optional[str] = None
+    bbox_ymin: Optional[float] = None
+    bbox_xmin: Optional[float] = None
+    bbox_ymax: Optional[float] = None
+    bbox_xmax: Optional[float] = None
+    technical_details: Optional[str] = None
+    risk_contribution: int = 0
+    model_config = ConfigDict(from_attributes=True)
 
-class ExplainabilityDossierSchema(BaseModel):
-    what_happened: str
-    why_is_it_risky: List[str]
-    supporting_evidence: List[str]
-    officer_recommendation: str
-
-class RiskAssessmentResultSchema(BaseModel):
-    total_risk_score: int
-    risk_level: str  # LOW, MEDIUM, CRITICAL
-    decision: str    # CLEAR_ENTRY, SECONDARY_INSPECTION, DETAIN_ALERT
+class FaceVerificationResponse(BaseModel):
+    id: str
+    portrait_url: Optional[str] = None
+    presented_url: Optional[str] = None
+    outcome: str
+    similarity_score: float
+    quality_score: float
+    quality_assessment: Optional[str] = None
+    explanation: str
     recommendation: str
-    risk_factors: List[RiskFactorSchema]
-    explainability: ExplainabilityDossierSchema
+    risk_contribution: int = 0
+    model_config = ConfigDict(from_attributes=True)
 
-class ScreeningSessionCreate(BaseModel):
-    document_type: str = "PASSPORT"
-    operator_id: str = "OFFICER-SSB-449"
-    checkpoint: str = "Raxaul Land Border Checkpoint (Indo-Nepal)"
+class ContributingFactor(BaseModel):
+    title: str
+    category: str
+    points: int
+    severity: str
 
-class ScreeningSessionResponse(BaseModel):
-    session_id: str
-    timestamp: str
-    operator_id: str
-    checkpoint: str
-    document_type: str
-    document_sha256: str
-    fields: Dict[str, Any]
-    validation: ValidationResultSchema
-    forensics: ForensicAnalysisResultSchema
-    face_verification: FaceVerificationResultSchema
-    cross_field: CrossDocumentResultSchema
-    risk: RiskAssessmentResultSchema
-
-class ScreeningReportResponse(BaseModel):
-    session_id: str
-    generated_at: str
-    classification: str = "OFFICIAL GOVERNMENT SCREENING DOSSIER"
-    document_type: str
-    document_sha256: str
-    operator_id: str
-    checkpoint: str
-    summary_verdict: str
-    total_risk_score: int
+class RiskAssessmentResponse(BaseModel):
+    id: str
+    total_score: int
     risk_level: str
+    primary_concern: Optional[str] = None
+    recommendation: str
+    contributing_factors: Optional[List[ContributingFactor]] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class ScreeningDecisionRequest(BaseModel):
+    decision: str = Field(..., description="STANDARD_REVIEW, SECONDARY_REVIEW, ESCALATE, INCONCLUSIVE")
+    officer_name: Optional[str] = "S. Sharma (Inspector/GD)"
+    officer_id: Optional[str] = "SSB-OFFICER-4821"
+    notes: Optional[str] = None
+
+class ScreeningDecisionResponse(BaseModel):
+    id: str
     decision: str
-    officer_action: str
-    fields: Dict[str, Any]
-    validation_findings: List[str]
-    forensic_findings: List[ForensicRegionSchema]
-    face_result: FaceVerificationResultSchema
-    risk_factors: List[RiskFactorSchema]
-    explainability: ExplainabilityDossierSchema
-    audit_hash: str
+    officer_id: str
+    officer_name: str
+    notes: Optional[str] = None
+    decided_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class DocumentResponse(BaseModel):
+    id: str
+    category: str
+    filename: str
+    url: str
+    mime_type: str
+    file_size: int
+    width: int
+    height: int
+    is_synthetic: bool
+    model_config = ConfigDict(from_attributes=True)
+
+class AuditLogResponse(BaseModel):
+    id: str
+    timestamp: datetime
+    session_id: Optional[str] = None
+    actor: str
+    action: str
+    details: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class ScreeningSessionSummary(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+    status: str
+    document_type: str
+    risk_level: Optional[str] = "PENDING"
+    total_score: Optional[int] = 0
+    primary_concern: Optional[str] = None
+    recommendation: Optional[str] = None
+    decision: Optional[str] = None
+    is_demo_scenario: bool = False
+    demo_scenario_id: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class ScreeningSessionDetail(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+    status: str
+    document_type: str
+    officer_notes: Optional[str] = None
+    is_demo_scenario: bool = False
+    demo_scenario_id: Optional[str] = None
+
+    documents: List[DocumentResponse] = []
+    extracted_fields: List[ExtractedFieldResponse] = []
+    validations: List[ValidationResultResponse] = []
+    forensic_findings: List[ForensicFindingResponse] = []
+    face_verification: Optional[FaceVerificationResponse] = None
+    risk_assessment: Optional[RiskAssessmentResponse] = None
+    decisions: List[ScreeningDecisionResponse] = []
+    audit_logs: List[AuditLogResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+class DemoScenarioSummary(BaseModel):
+    id: str
+    title: str
+    scenario_type: str
+    description: str
+    expected_risk_level: str
+    primary_anomaly: str
+    document_type: str
+    preview_url: Optional[str] = None
+
+class SystemSettingsSchema(BaseModel):
+    risk_threshold_low: int
+    risk_threshold_review: int
+    risk_threshold_high: int
+    enable_demo_watchlist: bool
+    demo_watchlist_name: str
+    ocr_engine: str = "EasyOCR + ICAO Doc 9303"
+    face_quality_threshold: float = 35.0

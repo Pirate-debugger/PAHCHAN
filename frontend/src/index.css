@@ -1,53 +1,39 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900;
-    min-height: 100vh;
+    @apply bg-slate-50 text-slate-900 font-sans antialiased selection:bg-brand-100 selection:text-brand-900;
   }
 }
 
-/* Forensic Document Canvas (Dedicated dark neutral inspection stage) */
-.forensic-canvas {
-  background-color: #0f172a;
-  color: #f8fafc;
+/* Document canvas and print formatting */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
 }
 
-/* Clean Enterprise Scrollbar */
+/* Subtle enterprise scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 9999px;
+  border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
-}
-
-/* Focus Ring Utility */
-.focus-ring {
-  @apply focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2;
-}
-
-/* Print Formatting */
-@media print {
-  body {
-    background: #ffffff !important;
-    color: #000000 !important;
-  }
-  .no-print {
-    display: none !important;
-  }
 }

@@ -1,135 +1,146 @@
-/**
- * PAHCHAN Frontend API Client
- * Connects React UI to FastAPI backend with graceful local resilience.
- */
+import {
+  ScreeningSessionSummary,
+  ScreeningSessionDetail,
+  WorkSummaryStats,
+  DemoScenario,
+  OfficerDecisionType,
+  SystemSettings,
+  AuditLogEntry
+} from '../types';
 
-import type { ScreeningSession } from '../types';
+const BASE_URL = '/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-const API_KEY = import.meta.env.VITE_API_KEY || 'pahchan-secret-api-key-2026';
+export const api = {
+  async getStats(): Promise<WorkSummaryStats> {
+    const res = await fetch(`${BASE_URL}/screenings/stats`);
+    if (!res.ok) throw new Error('Failed to fetch summary stats');
+    return res.json();
+  },
 
-export async function checkBackendHealth(): Promise<boolean> {
-  try {
-    const healthUrl = API_BASE_URL.replace('/api/v1', '/api/health');
-    const res = await fetch(healthUrl);
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+  async listScreenings(status?: string, search?: string): Promise<ScreeningSessionSummary[]> {
+    const params = new URLSearchParams();
+    if (status && status !== 'ALL') params.append('status', status);
+    if (search) params.append('search', search);
+    const res = await fetch(`${BASE_URL}/screenings?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch screenings list');
+    return res.json();
+  },
 
-export async function executeScreeningApi(
-  docFile: File,
-  liveFile?: File,
-  mrz1?: string,
-  mrz2?: string,
-  threshold: number = 75.0
-): Promise<ScreeningSession | null> {
-  try {
-    const formData = new FormData();
-    formData.append('doc_file', docFile);
-    if (liveFile) {
-      formData.append('live_file', liveFile);
-    }
-    if (mrz1) formData.append('mrz_line1', mrz1);
-    if (mrz2) formData.append('mrz_line2', mrz2);
-    formData.append('face_threshold', threshold.toString());
+  async getScreening(id: string): Promise<ScreeningSessionDetail> {
+    const res = await fetch(`${BASE_URL}/screenings/${id}`);
+    if (!res.ok) throw new Error(`Failed to fetch screening case ${id}`);
+    return res.json();
+  },
 
-    const res = await fetch(`${API_BASE_URL}/screenings`, {
+  async createScreening(formData: FormData): Promise<ScreeningSessionSummary> {
+    const res = await fetch(`${BASE_URL}/screenings`, {
       method: 'POST',
-      headers: {
-        'X-API-Key': API_KEY,
-      },
-      body: formData,
+      body: formData
     });
+    if (!res.ok) throw new Error('Failed to create screening session');
+    return res.json();
+  },
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.warn('Screening API returned error:', errText);
-      return null;
-    }
+  async analyzeScreening(
+    id: string,
+    options?: { force_flags?: string; force_face?: string }
+  ): Promise<ScreeningSessionDetail> {
+    const params = new URLSearchParams();
+    if (options?.force_flags) params.append('force_scenario_flags', options.force_flags);
+    if (options?.force_face) params.append('force_face_outcome', options.force_face);
 
-    const data = await res.json();
-    return {
-      sessionId: data.session_id,
-      timestamp: data.timestamp,
-      operatorId: data.operator_id,
-      checkpoint: data.checkpoint,
-      documentType: data.document_type,
-      documentImageUrl: URL.createObjectURL(docFile),
-      documentSha256: data.document_sha256,
-      liveFaceImageUrl: liveFile ? URL.createObjectURL(liveFile) : undefined,
-      fields: data.fields,
-      validation: data.validation,
-      tampering: data.forensics,
-      faceVerification: data.face_verification,
-      crossField: data.cross_field,
-      riskFactors: data.risk.risk_factors || [],
-      totalRiskScore: data.risk.total_risk_score,
-      riskLevel: data.risk.risk_level,
-      decision: data.risk.decision,
-      operatorNotes: data.risk.recommendation,
-      explainability: data.risk.explainability
-    };
-  } catch (err) {
-    console.warn('Network error calling screening API:', err);
-    return null;
-  }
-}
+    const res = await fetch(`${BASE_URL}/screenings/${id}/analyze?${params.toString()}`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error('Failed to execute screening analysis');
+    return res.json();
+  },
 
-export async function fetchAuditLogsApi(): Promise<any[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/audit/logs?limit=50`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.logs || [];
-  } catch {
-    return [];
-  }
-}
-
-export async function verifyAuditLedgerApi(): Promise<{ valid: boolean; total_records: number; tampered: boolean; chain_head?: string } | null> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/audit/verify`);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
-
-export async function fetchWatchlistApi(): Promise<any[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/watchlist?limit=100`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.records || [];
-  } catch {
-    return [];
-  }
-}
-
-export async function addWatchlistRecordApi(record: any): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/watchlist`, {
+  async recordDecision(
+    id: string,
+    decision: OfficerDecisionType,
+    notes?: string,
+    officerName: string = 'S. Sharma (Inspector/GD)'
+  ): Promise<any> {
+    const res = await fetch(`${BASE_URL}/screenings/${id}/decision`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': API_KEY,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        full_name: record.fullName,
-        doc_number: record.docNumber,
-        nationality: record.nationality || 'IND',
-        dob: record.dob || '1990-01-01',
-        risk_category: record.riskCategory,
-        flagged_by: record.flaggedBy || 'SSB Intelligence',
-        severity: record.severity || 'CRITICAL',
-        alert_notes: record.alertNotes
+        decision,
+        notes,
+        officer_name: officerName
       })
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (!res.ok) throw new Error('Failed to record screening decision');
+    return res.json();
+  },
+
+  async editField(
+    sessionId: string,
+    fieldKey: string,
+    newValue: string,
+    notes?: string
+  ): Promise<any> {
+    const res = await fetch(`${BASE_URL}/screenings/${sessionId}/fields/${fieldKey}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        new_value: newValue,
+        officer_notes: notes
+      })
+    });
+    if (!res.ok) throw new Error('Failed to update extracted field');
+    return res.json();
+  },
+
+  async listDemoScenarios(): Promise<DemoScenario[]> {
+    const res = await fetch(`${BASE_URL}/demo/scenarios`);
+    if (!res.ok) throw new Error('Failed to fetch demo scenarios');
+    return res.json();
+  },
+
+  async loadDemoScenario(scenarioId: string): Promise<ScreeningSessionDetail> {
+    const res = await fetch(`${BASE_URL}/demo/scenarios/${scenarioId}/load`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error(`Failed to load scenario ${scenarioId}`);
+    return res.json();
+  },
+
+  async listReports(): Promise<any[]> {
+    const res = await fetch(`${BASE_URL}/reports`);
+    if (!res.ok) throw new Error('Failed to fetch reports archive');
+    return res.json();
+  },
+
+  async getReport(sessionId: string): Promise<any> {
+    const res = await fetch(`${BASE_URL}/reports/${sessionId}`);
+    if (!res.ok) throw new Error(`Failed to fetch report for case ${sessionId}`);
+    return res.json();
+  },
+
+  async getAuditLogs(sessionId?: string, action?: string): Promise<AuditLogEntry[]> {
+    const params = new URLSearchParams();
+    if (sessionId) params.append('session_id', sessionId);
+    if (action) params.append('action', action);
+    const res = await fetch(`${BASE_URL}/audit?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch audit trail');
+    return res.json();
+  },
+
+  async getSettings(): Promise<SystemSettings> {
+    const res = await fetch(`${BASE_URL}/settings`);
+    if (!res.ok) throw new Error('Failed to fetch system settings');
+    return res.json();
+  },
+
+  async updateSettings(settings: SystemSettings): Promise<SystemSettings> {
+    const res = await fetch(`${BASE_URL}/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    });
+    if (!res.ok) throw new Error('Failed to update system settings');
+    return res.json();
   }
-}
+};

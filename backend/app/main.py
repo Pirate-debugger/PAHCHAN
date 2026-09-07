@@ -1,75 +1,61 @@
-"""
-PAHCHAN: AI-Powered Fake Identity & Document Screening Platform
-Smart India Hackathon 2026 — Problem Statement SIH2026188
-FastAPI Application Entry Point
-"""
-
+import os
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import uvicorn
+from fastapi.staticfiles import StaticFiles
 
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from app.core.limiter import limiter
 from app.core.config import settings
-from app.database import init_database
-from app.api.v1.router import api_router
+from app.core.database import engine, Base
+import app.models  # Ensure all models are registered
+from app.api.screenings import router as screenings_router
+from app.api.demo import router as demo_router
+from app.api.reports import router as reports_router
+from app.api.audit import router as audit_router
+from app.api.settings import router as settings_router
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Initializes SQLite database and tables upon server boot."""
-    init_database()
-    yield
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title=f"{settings.PROJECT_NAME} — Intelligent Identity & Document Screening Platform",
-    description=(
-        "AI-Assisted Decision-Support and Forensic Screening Workstation for Authorized "
-        "Border/Checkpoint Officers (SSB / Bureau of Immigration / Ministry of Home Affairs). "
-        "Transforms complex multi-signal forensic evidence into explainable risk indicators."
-    ),
+    title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    lifespan=lifespan,
-    openapi_tags=[
-        {"name": "Screening Pipeline", "description": "Core end-to-end multi-layer screening workflow"},
-        {"name": "Document Processing & Forensics", "description": "Error Level Analysis, Sobel gradients, OCR & MRZ validation"},
-        {"name": "Biometric Face Verification", "description": "Presenter vs portrait biometric verification with landmark HUD"},
-        {"name": "Risk Engine & Weights", "description": "Deterministic additive scoring and configurable factor weights"},
-        {"name": "Audit Trail & History", "description": "Immutable screening logs with cryptographic SHA-256 signatures"},
-        {"name": "Demo Mode & Synthetic Lab", "description": "Pre-configured competition demonstration scenarios"}
-    ]
+    description="AI-Based Fake Identity & Document Screening System (SIH2026188) for Ministry of Home Affairs / SSB"
 )
 
-# Register slowapi rate limiting state and exception handler (P2.4)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-# Configure Cross-Origin Resource Sharing (CORS) with explicit origin allow-list
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.get("/api/health", tags=["System Health"])
-@app.get("/api/v1/health", tags=["System Health"])
+# Mount static media directories
+settings.UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+settings.EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=str(settings.UPLOADS_DIR)), name="uploads")
+app.mount("/evidence", StaticFiles(directory=str(settings.EVIDENCE_DIR)), name="evidence")
+
+# Include Routers
+app.include_router(screenings_router, prefix=settings.API_V1_STR)
+app.include_router(demo_router, prefix=settings.API_V1_STR)
+app.include_router(reports_router, prefix=settings.API_V1_STR)
+app.include_router(audit_router, prefix=settings.API_V1_STR)
+app.include_router(settings_router, prefix=settings.API_V1_STR)
+
+@app.get("/api/health")
 def health_check():
-    """Health check endpoint confirming engine readiness."""
     return {
-        "status": "ONLINE",
-        "system": settings.PROJECT_NAME,
-        "tagline": settings.TAGLINE,
+        "status": "HEALTHY",
+        "system": "PAHCHAN",
         "version": settings.VERSION,
-        "mode": "DECISION_SUPPORT_ACTIVE",
-        "checkpoint": "Raxaul Land Border Checkpoint (Indo-Nepal)",
-        "agency": "Special Service Bureau (SSB) / MHA"
+        "organization": settings.ORGANIZATION,
+        "department": settings.DEPARTMENT,
+        "sih_problem_id": settings.SIH_PROBLEM_ID
     }
 
-# Mount master v1 API router
-app.include_router(api_router, prefix=settings.API_V1_STR)
-
 if __name__ == "__main__":
-    uvicorn.run(app, host=settings.HOST, port=settings.PORT)
+    import uvicorn
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)

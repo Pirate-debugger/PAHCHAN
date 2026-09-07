@@ -1,63 +1,42 @@
-"""
-PAHCHAN Core Application Configuration
-Smart India Hackathon 2026 — Problem Statement SIH2026188
-"""
-
-from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
-from typing import List, Dict
 import os
+from pathlib import Path
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "PAHCHAN"
-    TAGLINE: str = "Verify Identity. Detect Risk. Protect Trust."
-    VERSION: str = "3.0.0"
-    API_V1_STR: str = "/api/v1"
+    PROJECT_NAME: str = "PAHCHAN — AI Fake Identity & Document Screening System"
+    VERSION: str = "1.0.0"
+    ORGANIZATION: str = "Ministry of Home Affairs / Sashastra Seema Bal (SSB)"
+    DEPARTMENT: str = "Police II Division"
+    SIH_PROBLEM_ID: str = "SIH2026188"
+    API_V1_STR: str = "/api"
     
-    # Server configuration
-    HOST: str = "0.0.0.0"
-    PORT: int = 8000
-    # Explicit CORS allow-list for frontend development and production
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174"
-    ]
-    CORS_ALLOW_CREDENTIALS: bool = False
+    # Paths
+    BASE_DIR: Path = Path(__file__).resolve().parent.parent
+    STATIC_DIR: Path = BASE_DIR / "static"
+    UPLOADS_DIR: Path = STATIC_DIR / "uploads"
+    EVIDENCE_DIR: Path = STATIC_DIR / "evidence"
     
-    # Authentication (API-Key Gated Write Endpoints)
-    API_KEY: str = "pahchan-secret-api-key-2026"
-    API_KEY_NAME: str = "X-API-Key"
+    # Database
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./pahchan.db")
     
-    # Storage & Database
-    SQLITE_DB_PATH: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "pahchan_audit.db")
-    UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
-    MAX_UPLOAD_SIZE_BYTES: int = 15 * 1024 * 1024  # 15 MB
-    ALLOWED_IMAGE_TYPES: List[str] = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+    # Risk Engine Default Thresholds (Configurable)
+    RISK_THRESHOLD_LOW: int = 29
+    RISK_THRESHOLD_REVIEW: int = 59
+    RISK_THRESHOLD_HIGH: int = 79
+    # Anything 80+ is CRITICAL
     
-    # Biometric Face Threshold
-    DEFAULT_FACE_THRESHOLD: float = 75.0
+    # Quality Guard Thresholds
+    MIN_FACE_SHARPNESS_VAR: float = 35.0  # Laplacian variance threshold
+    MIN_FACE_CONFIDENCE: float = 0.60
     
-    # Configurable Default Risk Weights (Additive 0 to 100)
-    DEFAULT_RISK_WEIGHTS: Dict[str, int] = {
-        "PHOTO_TAMPERING": 30,
-        "TEXT_TAMPERING": 25,
-        "STAMP_TAMPERING": 25,
-        "FACE_MISMATCH": 45,
-        "FACE_VERIFICATION_SKIPPED": 35,
-        "EXPIRED_DOCUMENT": 35,
-        "CROSSFIELD_MISMATCH": 40,
-        "WATCHLIST_HIT": 50,
-        "METADATA_TAMPERING": 15,
-        "MRZ_CHECKSUM_FAILURE": 20
-    }
-    
-    # Risk Score Classification Thresholds
-    RISK_LOW_CEILING: int = 29
-    RISK_MEDIUM_CEILING: int = 69
-    # >= 70 is CRITICAL / HIGH RISK
+    # Verification Sources Configuration
+    ENABLE_DEMO_WATCHLIST: bool = True
+    DEMO_WATCHLIST_NAME: str = "Demonstration Verification Source"
 
-    model_config = ConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(case_sensitive=True)
 
 settings = Settings()
+
+# Ensure static directories exist
+settings.UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+settings.EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
