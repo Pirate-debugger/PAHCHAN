@@ -1,0 +1,33 @@
+# Dependabot configuration for PAHCHAN (SIH2026188)
+version: 2
+updates:
+  # Python Dependencies (FastAPI, OpenCV, NumPy, Pydantic)
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "security"
+      - "dependencies"
+      - "backend"
+
+  # Frontend Node/npm Dependencies (React, Vite, Lucide, Tailwind)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "security"
+      - "dependencies"
+      - "frontend"
+
+  # GitHub Actions Workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "infra"
+      - "ci"
