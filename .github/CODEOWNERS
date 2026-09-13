@@ -1,0 +1,32 @@
+# CODEOWNERS for PAHCHAN (SIH2026188)
+# Defines individuals or teams responsible for code review across repository components.
+
+# Default global owners
+* @Pirate-debugger
+
+# Backend Core & API Routers
+/backend/app/api/            @Pirate-debugger
+/backend/app/core/           @Pirate-debugger
+/backend/app/models/         @Pirate-debugger
+
+# Forensic & Computer Vision Services
+/backend/app/services/forensic_service.py   @Pirate-debugger
+/backend/app/services/ocr_service.py        @Pirate-debugger
+/backend/app/services/face_service.py       @Pirate-debugger
+/backend/app/services/risk_service.py       @Pirate-debugger
+
+# Sovereign Registry Providers
+/backend/app/services/providers/            @Pirate-debugger
+
+# Frontend Workspace & UI Components
+/frontend/src/features/workspace/           @Pirate-debugger
+/frontend/src/features/screening/           @Pirate-debugger
+/frontend/src/features/demo/                @Pirate-debugger
+/frontend/src/features/reports/             @Pirate-debugger
+
+# Security, Audit & Cryptographic Logic (Strict Review Required)
+/backend/app/services/report_service.py     @Pirate-debugger
+/backend/app/services/audit_service.py      @Pirate-debugger
+/SECURITY.md                                @Pirate-debugger
+/docs/auth.md                               @Pirate-debugger
+/docs/audit.md                              @Pirate-debugger
