@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from '../../components/ui/Modal';
-import { Badge } from '../../components/ui/Badge';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import {
   Check,
@@ -10,7 +9,6 @@ import {
   FileScan,
   ShieldCheck,
   Fingerprint,
-  CheckCircle2,
   Lock
 } from 'lucide-react';
 

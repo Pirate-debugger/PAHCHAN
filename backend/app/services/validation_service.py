@@ -422,6 +422,61 @@ class ValidationService:
                 pass
 
         # -----------------------------------------------------------------
+        # 8b. DATE OF BIRTH & AGE PLAUSIBILITY CHECK
+        # -----------------------------------------------------------------
+        if dob_str:
+            try:
+                dob_date = None
+                if "-" in dob_str:
+                    p = dob_str.split("-")
+                    if len(p) == 3:
+                        dob_date = date(int(p[0]), int(p[1]), int(p[2]))
+                elif "/" in dob_str:
+                    p = dob_str.split("/")
+                    if len(p) == 3:
+                        if len(p[0]) == 4:
+                            dob_date = date(int(p[0]), int(p[1]), int(p[2]))
+                        else:
+                            dob_date = date(int(p[2]), int(p[1]), int(p[0]))
+
+                if dob_date:
+                    today = date.today()
+                    if dob_date > today:
+                        results.append({
+                            "rule_id": "VAL_DOB_PLAUSIBILITY",
+                            "rule_name": "Date of Birth Plausibility & Age Verification",
+                            "category": "CHRONOLOGY",
+                            "status": "FAIL",
+                            "message": f"Impossible future date of birth detected: {dob_date.strftime('%d %b %Y')}.",
+                            "details": "Date of birth occurs after current calendar date. Indicates fraudulent metadata or parsing anomaly.",
+                            "risk_points": 40
+                        })
+                    else:
+                        age = today.year - dob_date.year - ((today.month, today.day) < (dob_date.month, dob_date.day))
+                        if age > 130:
+                            results.append({
+                                "rule_id": "VAL_DOB_PLAUSIBILITY",
+                                "rule_name": "Date of Birth Plausibility & Age Verification",
+                                "category": "CHRONOLOGY",
+                                "status": "FAIL",
+                                "message": f"Implausible calculated age ({age} years) from recorded birth date {dob_date.strftime('%Y')}.",
+                                "details": "Subject age exceeds standard human longevity threshold (130 years).",
+                                "risk_points": 35
+                            })
+                        else:
+                            results.append({
+                                "rule_id": "VAL_DOB_PLAUSIBILITY",
+                                "rule_name": "Date of Birth Plausibility & Age Verification",
+                                "category": "CHRONOLOGY",
+                                "status": "PASS",
+                                "message": f"Date of birth verified as plausible (Subject age: {age} years).",
+                                "details": f"Recorded birth date {dob_date.strftime('%d %b %Y')} is valid and consistent with active identity.",
+                                "risk_points": 0
+                            })
+            except Exception:
+                pass
+
+        # -----------------------------------------------------------------
         # 9. CROSS-DOCUMENT (Passport vs Visa) VALIDATION
         # -----------------------------------------------------------------
         if visa_fields_map:

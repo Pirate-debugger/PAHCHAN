@@ -14,7 +14,7 @@ class ScreeningSession(Base):
     id = Column(String(32), primary_key=True, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    status = Column(String(32), default="PENDING", index=True)  # PENDING, IN_REVIEW, COMPLETED, ESCALATED
+    status = Column(String(32), default="PENDING", index=True)  # PENDING, IN_REVIEW, COMPLETED, ESCALATED, ANALYSIS_FAILED
     document_type = Column(String(32), default="PASSPORT")      # PASSPORT, VISA, NATIONAL_ID, DRIVING_LICENSE, PERMIT
     officer_notes = Column(Text, nullable=True)
     is_demo_scenario = Column(Boolean, default=False)

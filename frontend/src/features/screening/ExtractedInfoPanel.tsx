@@ -6,10 +6,6 @@ import {
   Edit2,
   Copy,
   CheckCircle2,
-  ShieldCheck,
-  XCircle,
-  Crosshair,
-  User,
   CreditCard,
   FileCode2
 } from 'lucide-react';

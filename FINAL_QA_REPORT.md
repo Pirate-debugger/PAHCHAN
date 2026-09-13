@@ -35,12 +35,12 @@ PAHCHAN has successfully undergone a complete, end-to-end audit, automated regre
 | **Database Architecture** | **PASS** | SQLite + SQLAlchemy 2.0 + Integrity Queries | 1-to-1 unique constraints enforced, duplicate records purged. |
 | **API Contract Integrity** | **PASS** | Automated Pytest Suite + Starlette TestClient | 100% parameter and response contract parity between React & FastAPI. |
 | **Document Processing** | **PASS** | Automated Pipeline Execution + End-to-End Tests | 10-stage sequential pipeline completes in under 1.5s per case. |
-| **OCR Pipeline** | **PASS** | Windows Native Media OCR (`winocr`) + EasyOCR | Sub-120ms optical character extraction with zero unhandled crashes. |
+| **OCR Pipeline** | **PASS** | Windows Native Media OCR (`winocr`) | Sub-120ms optical character extraction with zero unhandled crashes. |
 | **QR / Barcode Processing** | **PASS** | Optical Classifier + Verification Engine | Structured payload extraction and cross-referencing. |
 | **MRZ Engine (ICAO 9303)**| **PASS** | `test_mrz_parser.py` + TD1/TD3 Algorithm | 7-3-1 modulus-10 check digits on doc number, birth date, expiry date. |
 | **Forensic Tampering** | **PASS** | Error Level Analysis (ELA) + Heatmap Overlays | Substrate texture variance, edge gradient abruptness, EXIF tags. |
 | **Tamper Visualization** | **PASS** | DocumentViewer Canvas Overlays + Evidence Drawer | Real-time coordinate crosshairs, interactive zoom, ELA overlays. |
-| **Face Verification** | **PASS** | Cascade Extraction + Quality Guard + 512-D Match | Laplacian blur variance check, brightness guards, match gauge. |
+| **Face Verification** | **PASS** | Cascade Extraction + Quality Guard + Histogram/Template Match | Laplacian blur variance check, brightness guards, match gauge. |
 | **Risk Engine** | **PASS** | Multi-Pillar Risk Engine (`risk_service.py`) | 0–100 scale clamped, no NaN/Infinity, transparent contributing factors. |
 | **Security & File Ingestion**| **PASS** | `test_security_uploads.py` + Magic Byte Checks | 15MB limit, extension whitelist, magic bytes, path traversal blocked. |
 | **Privacy & PII Protection**| **PASS** | `test_privacy_masking.py` + Reports Masking | National IDs (PAN, Aadhaar, Passport, DL) masked in UI and reports. |

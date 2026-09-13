@@ -89,7 +89,7 @@ class PassportProvider(VerificationProvider):
                     is_matched=False,
                     status="MISMATCH",
                     identifier_checked=cleaned_num,
-                    evidence_notes="[DEMO / SANDBOX VERIFICATION] Passport flagged in Stolen & Lost Travel Documents (SLTD) demonstration registry.",
+                    evidence_notes="[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] Passport flagged in Stolen & Lost Travel Documents (SLTD) demonstration registry.",
                     response_metadata={"watchlist_alert": "SLTD_LOST_OR_STOLEN", "alert_level": "CRITICAL"}
                 )
 
@@ -101,7 +101,7 @@ class PassportProvider(VerificationProvider):
                 status="VERIFIED",
                 identifier_checked=cleaned_num,
                 trusted_fields={"passport_number": cleaned_num, "issuing_country": "IND"},
-                evidence_notes="[DEMO / SANDBOX VERIFICATION] Passport number syntax matches ICAO 9303 standards. No active alerts in demo registry."
+                evidence_notes="[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] Passport number syntax matches ICAO 9303 standards. No active alerts in demo registry."
             )
 
         return ProviderVerificationResult(

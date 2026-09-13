@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { RiskBadge } from '../../components/common/RiskBadge';
 import { Button } from '../../components/ui/Button';
-import { FileText, Printer, ArrowRight, RefreshCw, ShieldCheck } from 'lucide-react';
+import { FileText, Printer, RefreshCw } from 'lucide-react';
 
 interface ReportsListPageProps {
   onOpenReport: (caseId: string) => void;

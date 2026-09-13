@@ -13,7 +13,7 @@ def get_system_settings():
         risk_threshold_high=settings.RISK_THRESHOLD_HIGH,
         enable_demo_watchlist=settings.ENABLE_DEMO_WATCHLIST,
         demo_watchlist_name=settings.DEMO_WATCHLIST_NAME,
-        ocr_engine="EasyOCR + ICAO Doc 9303 MRZ Engine",
+        ocr_engine="Windows Native OCR (winocr) + ICAO Doc 9303 MRZ Engine",
         face_quality_threshold=settings.MIN_FACE_SHARPNESS_VAR
     )
 

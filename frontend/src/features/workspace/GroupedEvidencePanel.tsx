@@ -8,11 +8,7 @@ import {
   AlertTriangle,
   XCircle,
   ChevronDown,
-  ChevronRight,
-  Crosshair,
-  FileCheck,
-  QrCode,
-  Info
+  ChevronRight
 } from 'lucide-react';
 import { ForensicFinding, ValidationResult, FaceVerification } from '../../types';
 
@@ -54,8 +50,7 @@ export const GroupedEvidencePanel: React.FC<GroupedEvidencePanelProps> = ({
   );
   const identityFindings = findings.filter((f) => f.category === 'IDENTITY_CONSISTENCY');
 
-  // Group 3: ISSUER & AUTHORITY VERIFICATION (Watchlist rules, issuer checks)
-  const issuerValidations = validations.filter((v) => v.category === 'WATCHLIST');
+
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 shadow-subtle flex flex-col h-full overflow-hidden">
@@ -203,29 +198,39 @@ export const GroupedEvidencePanel: React.FC<GroupedEvidencePanelProps> = ({
 
             {/* Biometric Face Verification Item */}
             {faceVerification && (
-              <div className={`p-3 rounded-xl border text-xs ${
-                faceVerification.outcome === 'MATCH_SIGNAL'
-                  ? 'bg-slate-50/60 border-slate-200/90'
-                  : 'bg-rose-50/70 border-rose-300'
-              }`}>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    {faceVerification.outcome === 'MATCH_SIGNAL' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                    )}
-                    <span className="font-bold text-slate-900">Biometric Face Comparison</span>
+              <div className="space-y-2">
+                <div className={`p-3 rounded-xl border text-xs ${
+                  faceVerification.outcome === 'MATCH_SIGNAL'
+                    ? 'bg-slate-50/60 border-slate-200/90'
+                    : 'bg-rose-50/70 border-rose-300'
+                }`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {faceVerification.outcome === 'MATCH_SIGNAL' ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                      )}
+                      <span className="font-bold text-slate-900">Biometric Face Comparison</span>
+                    </div>
+                    <span className={`text-[10px] font-mono font-bold ${
+                      faceVerification.outcome === 'MATCH_SIGNAL' ? 'text-emerald-700' : 'text-rose-700'
+                    }`}>
+                      {faceVerification.similarity_score}% SIMILARITY
+                    </span>
                   </div>
-                  <span className={`text-[10px] font-mono font-bold ${
-                    faceVerification.outcome === 'MATCH_SIGNAL' ? 'text-emerald-700' : 'text-rose-700'
-                  }`}>
-                    {faceVerification.similarity_score}% SIMILARITY
+                  <p className="text-[11px] text-slate-600 mt-1 pl-6">
+                    {faceVerification.explanation}
+                  </p>
+                </div>
+
+                {/* Face Comparison Human Review Advisory Banner */}
+                <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/90 text-amber-900 text-[11px] flex items-center gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span className="font-medium leading-tight">
+                    Face comparison is a screening signal and requires human review.
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-600 mt-1 pl-6">
-                  {faceVerification.explanation}
-                </p>
               </div>
             )}
 

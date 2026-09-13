@@ -18,10 +18,10 @@ PAHCHAN is an edge-first, AI-driven forensic screening workstation engineered fo
 [ PAHCHAN Edge Engine ] (FastAPI + Uvicorn + SQLAlchemy 2.0)
    ├── SQLite Core (pahchan.db) with 1-to-1 Cascading Foreign Key Integrity
    ├── Intelligent Optical Document Classifier (ISO/IEC 7810 ID-1 vs ID-3)
-   ├── Windows Native OCR Engine (winocr) + EasyOCR Substrate Fallback
+   ├── Windows Native OCR Engine (winocr) + ICAO MRZ Parser
    ├── ICAO Doc 9303 Checksum Engine (7-3-1 Weight Modulus-10 Algorithm)
    ├── Forensic Analysis Engine (ELA, Texture Variance, Edge Gradients, EXIF)
-   ├── Biometric Face Matcher (Cascade Extraction + Quality Guard + 512-D Embeddings)
+   ├── Biometric Face Matcher (Cascade Extraction + Quality Guard + Histogram/Template Match)
    ├── Risk Scoring Engine (0-100 Clamped Multi-Factor Explainable Pillars)
    └── Government Gateway Adapter Matrix (PAN, Passport, DL, Voter, RC, DigiLocker)
 ```
@@ -31,8 +31,8 @@ PAHCHAN is an edge-first, AI-driven forensic screening workstation engineered fo
 ## 2. Technology Stack
 - **Frontend:** React 19.2, TypeScript 5.8 / 6.0, Vite 8.2, TailwindCSS 3.4, Lucide-React 1.42, PostCSS, Autoprefixer.
 - **Backend:** Python 3.14, FastAPI 0.110+, Uvicorn 0.28+, Pydantic v2, Pydantic-Settings, SQLAlchemy 2.0.
-- **Computer Vision & OCR:** OpenCV-headless 4.9+, Pillow 10.0+, winocr 1.0+ (Windows Media OCR), EasyOCR 1.7+, NumPy 1.26+, SciPy 1.12+.
-- **Database:** SQLite 3 (WAL mode, foreign key cascade, unique session constraints).
+- **Computer Vision & OCR:** OpenCV-headless 4.9+, Pillow 10.0+, winocr 1.0+ (Windows Media OCR), NumPy 1.26+.
+- **Database:** SQLite (SQLAlchemy 2.0 ORM, PostgreSQL-ready via `DATABASE_URL` env override).
 - **Testing & QA:** Pytest 9.1+, HTTPX 0.27+, Starlette TestClient, Oxlint linter, Headless Chromium browser automation.
 
 ---
@@ -120,7 +120,7 @@ All frontend API calls in `src/services/api.ts` match backend endpoint schemas:
 The verification lifecycle runs through 10 deterministic stages:
 1. `FILE_INGESTION`: Size, extension, and magic-byte security inspection.
 2. `DOCUMENT_CLASSIFICATION`: Geometry, aspect ratio, and optical motif detection.
-3. `OCR_EXTRACTION`: Native Windows Media OCR / EasyOCR extraction.
+3. `OCR_EXTRACTION`: Native Windows Media OCR extraction.
 4. `MRZ_PARSING`: ICAO 9303 TD1/TD3 check digit validation.
 5. `SYNTAX_VALIDATION`: National statutory regex and entity code checks.
 6. `FORENSIC_TAMPERING`: Error Level Analysis (ELA) and substrate texture analysis.

@@ -1,10 +1,7 @@
 import React from 'react';
 import {
   AlertTriangle,
-  X,
   Cpu,
-  Layers,
-  ShieldAlert,
   Info
 } from 'lucide-react';
 import { ForensicFinding } from '../../types';

@@ -151,9 +151,9 @@ class PANProvider(VerificationProvider):
                     },
                     mismatches=mismatches,
                     evidence_notes=(
-                        f"[DEMO / SANDBOX VERIFICATION] PAN format valid ({entity_name}). Information matches simulated NSDL registry."
+                        f"[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] PAN format valid ({entity_name}). Information matches simulated NSDL registry."
                         if is_matched else
-                        f"[DEMO / SANDBOX VERIFICATION] PAN detected with {len(mismatches)} critical field discrepancies against simulated registry."
+                        f"[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] PAN detected with {len(mismatches)} critical field discrepancies against simulated registry."
                     ),
                     response_metadata={
                         "entity_type": entity_name,
@@ -173,7 +173,7 @@ class PANProvider(VerificationProvider):
                     trusted_fields={"entity_type": entity_name},
                     mismatches=mismatches,
                     confidence=0.75,
-                    evidence_notes=f"PAN syntax structurally valid ({entity_name}), but Income Tax Department online verification provider is UNCONFIGURED. Status set to UNVERIFIABLE.",
+                    evidence_notes=f"[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] PAN syntax structurally valid ({entity_name}), but Income Tax Department online verification provider is UNCONFIGURED. Status set to UNVERIFIABLE.",
                     response_metadata={
                         "entity_type": entity_name,
                         "surname_initial": surname_initial,

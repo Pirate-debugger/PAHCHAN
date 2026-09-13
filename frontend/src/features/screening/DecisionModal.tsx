@@ -7,7 +7,6 @@ import {
   UserCheck,
   AlertTriangle,
   HelpCircle,
-  FileCheck,
   Lock,
   BadgeCheck
 } from 'lucide-react';

@@ -100,10 +100,17 @@ export function App() {
       setPendingAnalysisCaseId(null);
       setActiveTab('workspace');
       addToast('success', 'Analysis Complete', `Session ${detailed.id} processed successfully`);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setIsAnalysisProgressOpen(false);
-      addToast('error', 'Analysis Error', 'Error during automated screening analysis');
+      try {
+        const failedDetail = await api.getScreening(pendingAnalysisCaseId);
+        setActiveSession(failedDetail);
+        setActiveCaseId(pendingAnalysisCaseId);
+        setActiveTab('workspace');
+      } catch {}
+      setPendingAnalysisCaseId(null);
+      addToast('error', 'Analysis Failed', err?.message || 'Error during automated screening analysis');
     }
   };
 

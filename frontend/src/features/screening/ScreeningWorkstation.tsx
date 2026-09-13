@@ -7,22 +7,16 @@ import { DecisionModal } from './DecisionModal';
 import { RiskBadge } from '../../components/common/RiskBadge';
 import { StatusPill } from '../../components/common/StatusPill';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 import {
   ArrowLeft,
   Printer,
   FileCheck,
-  ShieldAlert,
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
   AlertOctagon,
-  Clock,
-  Sparkles,
   Download,
-  Share2,
-  FileText,
-  HelpCircle
+  RotateCcw
 } from 'lucide-react';
 
 interface ScreeningWorkstationProps {
@@ -31,6 +25,7 @@ interface ScreeningWorkstationProps {
   onRecordDecision: (decision: OfficerDecisionType, notes?: string) => Promise<void>;
   onEditField: (fieldKey: string, newValue: string, notes?: string) => Promise<void>;
   onPrintReport: () => void;
+  onRetry?: () => Promise<void>;
 }
 
 export const ScreeningWorkstation: React.FC<ScreeningWorkstationProps> = ({
@@ -38,7 +33,8 @@ export const ScreeningWorkstation: React.FC<ScreeningWorkstationProps> = ({
   onBack,
   onRecordDecision,
   onEditField,
-  onPrintReport
+  onPrintReport,
+  onRetry
 }) => {
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [selectedFieldKey, setSelectedFieldKey] = useState<string | null>(null);
@@ -137,6 +133,42 @@ export const ScreeningWorkstation: React.FC<ScreeningWorkstationProps> = ({
           </div>
 
         </div>
+
+        {/* Synthetic Demonstration Document Banner */}
+        {session.is_demo_scenario && (
+          <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 flex items-center justify-between gap-3 text-amber-950 shadow-xs">
+            <div className="flex items-center gap-2 text-xs font-bold">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>SYNTHETIC DEMONSTRATION DOCUMENT — NOT A REAL IDENTITY DOCUMENT</span>
+            </div>
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-200/80 text-amber-900 border border-amber-300">
+              SOVEREIGN BENCHMARK LAB
+            </span>
+          </div>
+        )}
+
+        {/* Analysis Failed Alert Banner with Retry */}
+        {session.status === 'ANALYSIS_FAILED' && (
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-300 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertOctagon className="w-5 h-5 text-rose-600 shrink-0" />
+              <div>
+                <h4 className="text-xs font-black text-rose-950 uppercase tracking-wide">Analysis Incomplete / Pipeline Interrupted</h4>
+                <p className="text-xs text-rose-800 mt-0.5">The forensic screening pipeline could not fully process this credential.</p>
+              </div>
+            </div>
+            {onRetry && (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={onRetry}
+                leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
+              >
+                Retry Analysis
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* 2. Structured Verification Result Banner (Answer-First UX) */}
         {risk && (

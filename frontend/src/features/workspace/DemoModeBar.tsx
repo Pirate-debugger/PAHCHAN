@@ -5,8 +5,7 @@ import {
   FileWarning,
   AlertOctagon,
   Users,
-  HelpCircle,
-  Loader2
+  HelpCircle
 } from 'lucide-react';
 
 interface DemoModeBarProps {

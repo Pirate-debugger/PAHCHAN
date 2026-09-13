@@ -86,6 +86,9 @@ class FaceService:
     ) -> Dict[str, Any]:
         """
         Perform biometric comparison between document portrait and presented photograph.
+        Lightweight visual similarity signal combining color-histogram correlation and structural
+        template matching — used as a fast on-device proxy; a production deployment would use
+        a proper face embedding model (e.g. ArcFace/FaceNet).
         Outcomes: MATCH_SIGNAL, REVIEW, MISMATCH_SIGNAL, UNABLE_TO_ASSESS
         """
         portrait_url, portrait_crop = self.extract_document_portrait(doc_image_path)

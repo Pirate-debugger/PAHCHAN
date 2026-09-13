@@ -5,14 +5,10 @@ import { Badge } from '../../components/ui/Badge';
 import {
   UploadCloud,
   Camera,
-  FileCheck,
   X,
   Image as ImageIcon,
   CheckCircle2,
   AlertCircle,
-  FileText,
-  Sparkles,
-  Shield,
   ScanLine
 } from 'lucide-react';
 

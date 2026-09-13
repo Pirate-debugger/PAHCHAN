@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, ArrowLeft, Shield, CheckCircle2, AlertTriangle, AlertOctagon, QrCode, Lock, BadgeCheck } from 'lucide-react';
+import { Printer, ArrowLeft, Shield } from 'lucide-react';
 import { RiskBadge } from '../../components/common/RiskBadge';
 import { Button } from '../../components/ui/Button';
 

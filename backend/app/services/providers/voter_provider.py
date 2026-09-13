@@ -96,7 +96,7 @@ class VoterProvider(VerificationProvider):
                     status="VERIFIED" if name_match else "MISMATCH",
                     identifier_checked=cleaned_epic,
                     trusted_fields=rec,
-                    evidence_notes="[DEMO / SANDBOX VERIFICATION] Elector details confirmed against demonstration electoral roll."
+                    evidence_notes="[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] Elector details confirmed against demonstration electoral roll."
                 )
             else:
                 return ProviderVerificationResult(

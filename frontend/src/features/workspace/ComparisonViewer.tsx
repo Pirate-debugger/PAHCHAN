@@ -1,14 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   ArrowLeftRight,
   ShieldCheck,
   AlertTriangle,
   CheckCircle2,
-  XCircle,
   Building2,
-  FileText,
-  Lock,
-  Layers
+  FileText
 } from 'lucide-react';
 import { ExtractedField, TrustedComparisonRecord } from '../../types';
 import { Button } from '../../components/ui/Button';
@@ -26,13 +23,10 @@ export const ComparisonViewer: React.FC<ComparisonViewerProps> = ({
   comparisonRecord,
   onClose
 }) => {
-  const [activeView, setActiveView] = useState<'SIDE_BY_SIDE' | 'DIFF_ONLY'>('SIDE_BY_SIDE');
-
   // Build field comparison list
   const nameField = extractedFields.find((f) => f.field_key === 'full_name')?.field_value || 'ARJUN MEHTA';
   const docNumberField = extractedFields.find((f) => f.field_key === 'document_number')?.field_value || 'P8291047';
   const dobField = extractedFields.find((f) => f.field_key === 'date_of_birth')?.field_value || '1994-08-14';
-  const expiryField = extractedFields.find((f) => f.field_key === 'date_of_expiry')?.field_value || '2032-08-13';
 
   // If comparison record exists, use its trusted fields; otherwise generate authentic baseline comparison
   const trustedName = comparisonRecord?.trusted_fields?.registered_name || comparisonRecord?.trusted_fields?.name || nameField;

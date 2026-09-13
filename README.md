@@ -26,7 +26,7 @@ Frontline officers of the **Sashastra Seema Bal (SSB)** along India's open borde
    - Automatic cross-referencing between Visual Inspection Zone (VIZ) OCR and MRZ.
 
 3. **Biometric Face Verification**
-   - 512-dimensional facial embedding comparison using Cosine Similarity.
+   - Lightweight visual similarity signal combining 3D color-histogram correlation and structural template matching (fast on-device proxy).
    - Cross-matches physical passport chip portraits against live checkpoint booth cameras.
    - Visual similarity gauge and operational match signals.
 
@@ -56,9 +56,9 @@ Frontline officers of the **Sashastra Seema Bal (SSB)** along India's open borde
        ┌───────────────────────────────┼───────────────────────────────┐
        ▼                               ▼                               ▼
 [COMPUTER VISION FORENSICS]    [ICAO DOC 9303 ENGINE]         [BIOMETRIC FACE MATCH]
-- Error Level Analysis (ELA)   - 7-3-1 Modulus-10 Checks      - 512-D Face Embeddings
-- Laplacian Texture Ratio      - VIZ vs MRZ Cross-Check       - Cosine Similarity
-- Perimeter Edge Gradients     - ISO 3166-1 Alpha-3           - Liveness & Alignment
+- Error Level Analysis (ELA)   - 7-3-1 Modulus-10 Checks      - Color-Histogram Correlation
+- Laplacian Texture Ratio      - VIZ vs MRZ Cross-Check       - Structural Template Match
+- Perimeter Edge Gradients     - ISO 3166-1 Alpha-3           - Quality & Sharpness Guard
 ```
 
 ---

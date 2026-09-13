@@ -1,3 +1,4 @@
+import os
 import hashlib
 import json
 from datetime import datetime, timezone
@@ -14,6 +15,15 @@ class ReportService:
         """
         latest_decision = session.decisions[-1] if session.decisions else None
 
+        primary_doc = next((d for d in session.documents if d.category == "PRIMARY_DOCUMENT"), None)
+        primary_hash = None
+        if primary_doc and primary_doc.file_path and os.path.exists(primary_doc.file_path):
+            try:
+                with open(primary_doc.file_path, "rb") as f:
+                    primary_hash = f"SHA256:{hashlib.sha256(f.read()).hexdigest()}"
+            except Exception:
+                primary_hash = None
+
         report_payload = {
             "report_id": f"REP-{session.id}",
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -24,6 +34,7 @@ class ReportService:
             "document_type": session.document_type,
             "session_status": session.status,
             "is_synthetic_demonstration": session.is_demo_scenario,
+            "primary_document_hash": primary_hash,
             "extracted_identity": {
                 f.field_key: {
                     "label": f.field_label,

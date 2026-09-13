@@ -1,14 +1,11 @@
 import React, { useState, useRef } from 'react';
 import {
   UploadCloud,
-  FileText,
   ShieldCheck,
   Lock,
-  Camera,
   CheckCircle2,
   AlertCircle,
   FileCheck,
-  ArrowRight,
   Info
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -229,7 +226,7 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 transition-all flex items-center gap-1.5 shadow-2xs"
               >
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Genuine PAN Card (Suraj Prakash Gupta)
+                Genuine Sample PAN Card
               </button>
               <button
                 type="button"

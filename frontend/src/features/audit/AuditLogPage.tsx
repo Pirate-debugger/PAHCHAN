@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuditLogEntry } from '../../types';
 import { api } from '../../services/api';
-import { Button } from '../../components/ui/Button';
-import { History, Search, RefreshCw, ShieldCheck, Lock } from 'lucide-react';
+import { Search, RefreshCw, Lock } from 'lucide-react';
 
 export const AuditLogPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);

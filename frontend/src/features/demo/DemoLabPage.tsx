@@ -3,19 +3,10 @@ import { DemoScenario } from '../../types';
 import { api } from '../../services/api';
 import { RiskBadge } from '../../components/common/RiskBadge';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 import {
   FlaskConical,
   Play,
-  Sparkles,
-  AlertOctagon,
-  CheckCircle2,
-  ShieldAlert,
-  Fingerprint,
-  FileCode2,
-  Image as ImageIcon,
-  Stamp,
-  RefreshCw
+  AlertOctagon
 } from 'lucide-react';
 
 interface DemoLabPageProps {
@@ -28,7 +19,7 @@ export const DemoLabPage: React.FC<DemoLabPageProps> = ({
   loadingScenarioId
 }) => {
   const [scenarios, setScenarios] = useState<DemoScenario[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
 
   useEffect(() => {
@@ -47,21 +38,21 @@ export const DemoLabPage: React.FC<DemoLabPageProps> = ({
   }, []);
 
   const categories = [
-    { id: 'ALL', label: 'All Scenarios (8)' },
+    { id: 'ALL', label: `All Scenarios (${scenarios.length || 10})` },
     { id: 'GENUINE', label: 'Genuine & Authentic' },
     { id: 'PHOTO', label: 'Photo & Image Alteration' },
     { id: 'MRZ', label: 'MRZ & Checksum Discrepancy' },
     { id: 'BIOMETRIC', label: 'Biometric Face Mismatch' },
-    { id: 'REGISTRY', label: 'Visa & Watchlist Collisions' }
+    { id: 'REGISTRY', label: 'Registry, Watchlist & Outage' }
   ];
 
   const filteredScenarios = scenarios.filter((s) => {
     if (activeCategory === 'ALL') return true;
     if (activeCategory === 'GENUINE') return s.expected_risk_level === 'LOW';
-    if (activeCategory === 'PHOTO') return s.primary_anomaly.toLowerCase().includes('photo') || s.primary_anomaly.toLowerCase().includes('stamp');
+    if (activeCategory === 'PHOTO') return s.primary_anomaly.toLowerCase().includes('photo') || s.primary_anomaly.toLowerCase().includes('stamp') || s.primary_anomaly.toLowerCase().includes('fabricated');
     if (activeCategory === 'MRZ') return s.primary_anomaly.toLowerCase().includes('mrz') || s.primary_anomaly.toLowerCase().includes('dob') || s.primary_anomaly.toLowerCase().includes('expiry');
     if (activeCategory === 'BIOMETRIC') return s.primary_anomaly.toLowerCase().includes('face') || s.primary_anomaly.toLowerCase().includes('impersonation');
-    if (activeCategory === 'REGISTRY') return s.primary_anomaly.toLowerCase().includes('visa') || s.primary_anomaly.toLowerCase().includes('watchlist') || s.primary_anomaly.toLowerCase().includes('duplicate');
+    if (activeCategory === 'REGISTRY') return s.primary_anomaly.toLowerCase().includes('visa') || s.primary_anomaly.toLowerCase().includes('watchlist') || s.primary_anomaly.toLowerCase().includes('duplicate') || s.primary_anomaly.toLowerCase().includes('unverifiable') || s.primary_anomaly.toLowerCase().includes('outage');
     return true;
   });
 
@@ -105,7 +96,7 @@ export const DemoLabPage: React.FC<DemoLabPageProps> = ({
         </div>
 
         <span className="text-xs font-mono px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-800 font-bold self-start md:self-auto">
-          8 Evaluation Scenarios Ready
+          {scenarios.length || 10} Evaluation Scenarios Ready
         </span>
       </div>
 

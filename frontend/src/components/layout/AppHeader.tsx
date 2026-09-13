@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Search, Shield, User, Terminal, Radio } from 'lucide-react';
+import { Plus, Search, Shield, User, Terminal } from 'lucide-react';
 
 interface AppHeaderProps {
   onNewScreening: () => void;

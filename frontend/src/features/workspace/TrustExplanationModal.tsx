@@ -6,9 +6,7 @@ import {
   FileCheck,
   CheckCircle2,
   Building2,
-  Info,
-  AlertTriangle,
-  ExternalLink
+  AlertTriangle
 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';

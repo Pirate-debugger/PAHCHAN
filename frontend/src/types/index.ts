@@ -1,5 +1,5 @@
 export type RiskLevel = 'LOW' | 'REVIEW' | 'HIGH' | 'CRITICAL' | 'PENDING';
-export type SessionStatus = 'PENDING' | 'IN_REVIEW' | 'COMPLETED' | 'ESCALATED';
+export type SessionStatus = 'PENDING' | 'IN_REVIEW' | 'COMPLETED' | 'ESCALATED' | 'ANALYSIS_FAILED';
 export type OfficerDecisionType = 'STANDARD_REVIEW' | 'SECONDARY_REVIEW' | 'ESCALATE' | 'INCONCLUSIVE';
 
 export interface DocumentItem {
@@ -33,7 +33,7 @@ export interface ValidationResult {
   id: string;
   rule_id: string;
   rule_name: string;
-  category: 'CHECKSUM' | 'CHRONOLOGY' | 'FORMAT' | 'CONSISTENCY' | 'EXPIRY' | 'WATCHLIST';
+  category: 'CHECKSUM' | 'CHRONOLOGY' | 'FORMAT' | 'CONSISTENCY' | 'EXPIRY' | 'WATCHLIST' | 'GATEWAY';
   status: 'PASS' | 'FAIL' | 'WARNING' | 'NOT_APPLICABLE';
   message: string;
   details?: string;
@@ -42,7 +42,7 @@ export interface ValidationResult {
 
 export interface ForensicFinding {
   id: string;
-  category: 'PHOTO_ALTERATION' | 'TEXT_MANIPULATION' | 'STAMP_FORGERY' | 'METADATA_ANOMALY' | 'IDENTITY_CONSISTENCY';
+  category: 'PHOTO_ALTERATION' | 'TEXT_MANIPULATION' | 'STAMP_FORGERY' | 'METADATA_ANOMALY' | 'IDENTITY_CONSISTENCY' | 'FORMAT_TAMPERING' | 'DOCUMENT_TYPE_MISMATCH';
   severity: 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   title: string;
   explanation: string;

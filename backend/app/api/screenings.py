@@ -1,6 +1,7 @@
 import os
 import uuid
 import json
+import logging
 from datetime import datetime, timezone, date
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
@@ -38,6 +39,7 @@ from app.services import (
 )
 
 router = APIRouter(prefix="/screenings", tags=["Screenings"])
+logger = logging.getLogger(__name__)
 
 @router.get("/stats")
 def get_screening_stats(db: Session = Depends(get_db)):
@@ -392,55 +394,15 @@ def get_screening_detail(session_id: str, db: Session = Depends(get_db)):
         audit_logs=logs
     )
 
-@router.post("/{session_id}/analyze")
-def run_screening_analysis(
-    session_id: str,
-    force_scenario_flags: Optional[str] = None,
-    force_face_outcome: Optional[str] = None,
-    db: Session = Depends(get_db)
+def _execute_analysis_pipeline(
+    session: ScreeningSession,
+    primary_doc: Document,
+    presented_path: Optional[str],
+    flags: Dict[str, Any],
+    force_face_outcome: Optional[str],
+    db: Session
 ):
-    """
-    Execute full automated analysis pipeline:
-    1. OCR Extraction & MRZ Parsing
-    2. Validation Rules Check
-    3. Forensic Tampering Analysis
-    4. Face Verification
-    5. Multi-Identity Check
-    6. Risk Assessment
-    """
-    session = db.query(ScreeningSession).filter(ScreeningSession.id == session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Screening session not found")
-
-    primary_doc = db.query(Document).filter(
-        Document.session_id == session_id,
-        Document.category == "PRIMARY_DOCUMENT"
-    ).first()
-
-    if not primary_doc or not os.path.exists(primary_doc.file_path):
-        raise HTTPException(status_code=400, detail="Primary document image missing")
-
-    presented_doc = db.query(Document).filter(
-        Document.session_id == session_id,
-        Document.category == "PRESENTED_PHOTO"
-    ).first()
-    presented_path = presented_doc.file_path if presented_doc else None
-
-    # Parse any scenario flags
-    flags = {}
-    if force_scenario_flags:
-        try:
-            flags = json.loads(force_scenario_flags)
-        except Exception:
-            pass
-
-    # Clear previous results if re-analyzing
-    db.query(ExtractedField).filter(ExtractedField.session_id == session_id).delete()
-    db.query(ValidationResult).filter(ValidationResult.session_id == session_id).delete()
-    db.query(ForensicFinding).filter(ForensicFinding.session_id == session_id).delete()
-    db.query(FaceVerification).filter(FaceVerification.session_id == session_id).delete()
-    db.query(RiskAssessment).filter(RiskAssessment.session_id == session_id).delete()
-    db.commit()
+    session_id = session.id
 
     # Step 1: OCR & MRZ Extraction
     ocr_res = ocr_service.extract_from_image(primary_doc.file_path, session.document_type)
@@ -467,6 +429,12 @@ def run_screening_analysis(
         fields_map[f["field_key"]] = f["field_value"]
 
     db.commit()
+    AuditService.log(
+        db=db,
+        session_id=session_id,
+        action="OCR_COMPLETED",
+        details=f"OCR extraction completed: {len(extracted_fields)} fields identified."
+    )
 
     # Step 2: Document Validation Check
     doc_type_detected = ocr_res.get("doc_type_detected")
@@ -529,10 +497,10 @@ def run_screening_analysis(
                     "status": "WARNING",
                     "message": f"External verification status: {prov_res.status}",
                     "details": prov_res.evidence_notes,
-                    "risk_points": 5
+                    "risk_points": 0
                 })
         except Exception as prov_err:
-            print(f"[Screenings] Provider check error: {prov_err}")
+            logger.warning(f"[Screenings] Provider check error: {prov_err}")
             val_results.append({
                 "rule_id": "VAL_PROVIDER_AUTHORITY",
                 "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
@@ -540,7 +508,7 @@ def run_screening_analysis(
                 "status": "WARNING",
                 "message": f"External verification unavailable ({primary_provider.provider_name} unreachable).",
                 "details": f"Local verification completed successfully. Gateway error: {str(prov_err)}",
-                "risk_points": 5
+                "risk_points": 0
             })
 
     for v in val_results:
@@ -716,6 +684,124 @@ def run_screening_analysis(
 
     return get_screening_detail(session_id, db)
 
+@router.post("/{session_id}/analyze")
+@router.post("/{session_id}/retry")
+@router.post("/{session_id}/retry-analysis")
+def run_screening_analysis(
+    session_id: str,
+    force_scenario_flags: Optional[str] = None,
+    force_face_outcome: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Execute full automated analysis pipeline:
+    1. OCR Extraction & MRZ Parsing
+    2. Validation Rules Check
+    3. Forensic Tampering Analysis
+    4. Face Verification
+    5. Multi-Identity Check
+    6. Risk Assessment
+    """
+    session = db.query(ScreeningSession).filter(ScreeningSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Screening session not found")
+
+    primary_doc = db.query(Document).filter(
+        Document.session_id == session_id,
+        Document.category == "PRIMARY_DOCUMENT"
+    ).first()
+
+    if not primary_doc or not os.path.exists(primary_doc.file_path):
+        session.status = "ANALYSIS_FAILED"
+        db.commit()
+        AuditService.log(
+            db=db,
+            session_id=session_id,
+            action="ANALYSIS_FAILED",
+            details="Primary document image missing or inaccessible"
+        )
+        raise HTTPException(status_code=400, detail="Primary document image missing or inaccessible")
+
+    presented_doc = db.query(Document).filter(
+        Document.session_id == session_id,
+        Document.category == "PRESENTED_PHOTO"
+    ).first()
+    presented_path = presented_doc.file_path if presented_doc else None
+
+    # Parse any scenario flags
+    flags = {}
+    if force_scenario_flags:
+        try:
+            flags = json.loads(force_scenario_flags)
+        except Exception:
+            pass
+
+    # Clear previous results if re-analyzing
+    db.query(ExtractedField).filter(ExtractedField.session_id == session_id).delete()
+    db.query(ValidationResult).filter(ValidationResult.session_id == session_id).delete()
+    db.query(ForensicFinding).filter(ForensicFinding.session_id == session_id).delete()
+    db.query(FaceVerification).filter(FaceVerification.session_id == session_id).delete()
+    db.query(RiskAssessment).filter(RiskAssessment.session_id == session_id).delete()
+    db.commit()
+
+    try:
+        return _execute_analysis_pipeline(
+            session=session,
+            primary_doc=primary_doc,
+            presented_path=presented_path,
+            flags=flags,
+            force_face_outcome=force_face_outcome,
+            db=db
+        )
+    except Exception as e:
+        db.rollback()
+        failed_session = db.query(ScreeningSession).filter(ScreeningSession.id == session_id).first()
+        if failed_session:
+            failed_session.status = "ANALYSIS_FAILED"
+            db.commit()
+            AuditService.log(
+                db=db,
+                session_id=session_id,
+                action="ANALYSIS_FAILED",
+                details=f"Analysis pipeline failed: {str(e)}"
+            )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analysis pipeline failed: {str(e)}"
+        )
+
+@router.post("/{session_id}/retry-analysis")
+def retry_screening_analysis(
+    session_id: str,
+    force_scenario_flags: Optional[str] = None,
+    force_face_outcome: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Retry an automated screening analysis that previously failed or needs re-evaluation.
+    Resets status to PENDING and re-runs the full automated pipeline.
+    """
+    session = db.query(ScreeningSession).filter(ScreeningSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Screening session not found")
+
+    session.status = "PENDING"
+    db.commit()
+
+    AuditService.log(
+        db=db,
+        session_id=session_id,
+        action="ANALYSIS_RETRY_INITIATED",
+        details="Authorized officer or automated trigger requested screening analysis retry"
+    )
+
+    return run_screening_analysis(
+        session_id=session_id,
+        force_scenario_flags=force_scenario_flags,
+        force_face_outcome=force_face_outcome,
+        db=db
+    )
+
 @router.post("/{session_id}/decision")
 def record_screening_decision(
     session_id: str,
@@ -782,3 +868,42 @@ def edit_extracted_field(
     )
 
     return {"status": "SUCCESS", "field_key": field_key, "new_value": req.new_value}
+
+@router.delete("/{session_id}")
+def delete_screening_case(
+    session_id: str,
+    db: Session = Depends(get_db)
+):
+    """Delete a screening session case and all associated artifacts with audit logging"""
+    session = db.query(ScreeningSession).filter(ScreeningSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Screening session not found")
+
+    # Record deletion audit log before removing child records
+    AuditService.log(
+        db=db,
+        session_id=session_id,
+        action="SCREENING_DELETED",
+        details=f"Screening case {session_id} ({session.document_type}) deleted by authorized officer"
+    )
+
+    # Delete related documents and local files
+    docs = db.query(Document).filter(Document.session_id == session_id).all()
+    for d in docs:
+        if d.file_path and os.path.exists(d.file_path):
+            try:
+                os.remove(d.file_path)
+            except Exception:
+                pass
+        db.delete(d)
+
+    db.query(ExtractedField).filter(ExtractedField.session_id == session_id).delete()
+    db.query(ValidationResult).filter(ValidationResult.session_id == session_id).delete()
+    db.query(ForensicFinding).filter(ForensicFinding.session_id == session_id).delete()
+    db.query(FaceVerification).filter(FaceVerification.session_id == session_id).delete()
+    db.query(RiskAssessment).filter(RiskAssessment.session_id == session_id).delete()
+    db.query(ScreeningDecision).filter(ScreeningDecision.session_id == session_id).delete()
+    db.delete(session)
+    db.commit()
+
+    return {"status": "SUCCESS", "message": f"Screening session {session_id} deleted successfully."}

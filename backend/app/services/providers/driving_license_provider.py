@@ -116,7 +116,7 @@ class DrivingLicenseProvider(VerificationProvider):
                     status="VERIFIED" if name_match else "MISMATCH",
                     identifier_checked=identifier,
                     trusted_fields=rec,
-                    evidence_notes=f"[DEMO / SANDBOX VERIFICATION] Driving licence verified in Parivahan Sandbox registry ({rec['cov']})."
+                    evidence_notes=f"[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] Driving licence verified in Parivahan Sandbox registry ({rec['cov']})."
                 )
             else:
                 return ProviderVerificationResult(

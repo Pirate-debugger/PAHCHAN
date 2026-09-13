@@ -81,7 +81,7 @@ class APISetuProvider(VerificationProvider):
                 status="VERIFIED",
                 identifier_checked=identifier,
                 trusted_fields={"status": "ACTIVE_REGISTERED", "id": identifier},
-                evidence_notes="[DEMO / SANDBOX VERIFICATION] Checked via API Setu Sandbox Gateway. Schema valid.",
+                evidence_notes="[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] Checked via API Setu Sandbox Gateway. Schema valid.",
                 response_metadata={"gateway": "API_SETU_SANDBOX", "latency_ms": 42}
             )
 

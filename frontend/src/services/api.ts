@@ -54,7 +54,36 @@ export const api = {
     const res = await fetch(`${BASE_URL}/screenings/${id}/analyze?${params.toString()}`, {
       method: 'POST'
     });
-    if (!res.ok) throw new Error('Failed to execute screening analysis');
+    if (!res.ok) {
+      let errDetail = 'Failed to execute screening analysis';
+      try {
+        const errJson = await res.json();
+        if (errJson.detail) errDetail = errJson.detail;
+      } catch {}
+      throw new Error(errDetail);
+    }
+    return res.json();
+  },
+
+  async retryAnalysis(
+    id: string,
+    options?: { force_flags?: string; force_face?: string }
+  ): Promise<ScreeningSessionDetail> {
+    const params = new URLSearchParams();
+    if (options?.force_flags) params.append('force_scenario_flags', options.force_flags);
+    if (options?.force_face) params.append('force_face_outcome', options.force_face);
+
+    const res = await fetch(`${BASE_URL}/screenings/${id}/retry-analysis?${params.toString()}`, {
+      method: 'POST'
+    });
+    if (!res.ok) {
+      let errDetail = 'Failed to retry screening analysis';
+      try {
+        const errJson = await res.json();
+        if (errJson.detail) errDetail = errJson.detail;
+      } catch {}
+      throw new Error(errDetail);
+    }
     return res.json();
   },
 

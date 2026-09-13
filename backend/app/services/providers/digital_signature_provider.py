@@ -152,7 +152,7 @@ class DigitalSignatureProvider(VerificationProvider):
                     "cert_serial": "2026-NEGD-881920-IND",
                     "status": "VALID_ACTIVE"
                 },
-                evidence_notes="[DEMO / SANDBOX VERIFICATION] Digital certificate verified against simulated e-Governance Root Authority."
+                evidence_notes="[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] Digital certificate verified against simulated e-Governance Root Authority."
             )
 
         return ProviderVerificationResult(

@@ -146,9 +146,9 @@ class DigiLockerProvider(VerificationProvider):
                 mismatches=mismatches,
                 confidence=0.98 if is_matched else 0.40,
                 evidence_notes=(
-                    "[DEMO / SANDBOX VERIFICATION] Successfully cross-referenced with simulated DigiLocker record. Information matches official certificate."
+                    "[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] Successfully cross-referenced with simulated DigiLocker record. Information matches official certificate."
                     if is_matched else
-                    f"[DEMO / SANDBOX VERIFICATION] Critical discrepancy detected against trusted DigiLocker record ({len(mismatches)} mismatching fields)."
+                    f"[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] Critical discrepancy detected against trusted DigiLocker record ({len(mismatches)} mismatching fields)."
                 ),
                 response_metadata={
                     "mode": "SANDBOX_SIMULATION",

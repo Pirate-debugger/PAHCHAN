@@ -107,7 +107,7 @@ class RCProvider(VerificationProvider):
                     status="VERIFIED" if name_match else "MISMATCH",
                     identifier_checked=identifier,
                     trusted_fields=rec,
-                    evidence_notes=f"[DEMO / SANDBOX VERIFICATION] Vehicle RC confirmed in Parivahan Vahan Sandbox ({rec['maker_model']})."
+                    evidence_notes=f"[SYNTHETIC DEMONSTRATION RESULT — NOT A LIVE GOVERNMENT VERIFICATION] Vehicle RC confirmed in Parivahan Vahan Sandbox ({rec['maker_model']})."
                 )
             else:
                 return ProviderVerificationResult(

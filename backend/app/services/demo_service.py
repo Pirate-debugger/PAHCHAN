@@ -3,7 +3,7 @@ import math
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 from app.core.config import settings
 
 # 8 Deterministic Scenarios
@@ -185,6 +185,54 @@ DEMO_SCENARIOS = [
         "face_match": "MATCH"
     }
 ]
+
+# Extended Scenarios for specialized forensic evaluations
+EXTENDED_SCENARIOS = [
+    {
+        "id": "scenario_9_fabricated_document",
+        "title": "Completely Fabricated Document",
+        "scenario_type": "FABRICATED",
+        "document_type": "PASSPORT",
+        "description": "Completely simulated fraudulent passport layout with invalid checksums, counterfeit substrate markers, and multiple tampered regions.",
+        "expected_risk_level": "CRITICAL",
+        "primary_anomaly": "Counterfeit Substrate & Multiple Checksum Failures",
+        "fields": {
+            "full_name": "VIKAS KHANNA",
+            "document_number": "X9988112",
+            "nationality": "IND",
+            "date_of_birth": "1984-02-12",
+            "date_of_expiry": "2034-02-11",
+            "gender": "M"
+        },
+        "mrz_l1": "P<INDKHANNA<<VIKAS<<<<<<<<<<<<<<<<<<<<<<<<<<",
+        "mrz_l2": "X9988112<0IND8402128M3402119<<<<<<<<<<<<<<00",
+        "flags": {"altered_photo": True, "modified_dob": True, "stamp_anomaly": True},
+        "face_match": "MISMATCH"
+    },
+    {
+        "id": "scenario_10_external_unverifiable",
+        "title": "External Gateway Unavailable (Zero Fraud Penalty)",
+        "scenario_type": "UNVERIFIABLE",
+        "document_type": "PASSPORT",
+        "description": "Valid passport presented during an authoritative external gateway network outage. Demonstrates that service unavailability remains UNVERIFIABLE without penalizing the traveler as fraudulent.",
+        "expected_risk_level": "LOW",
+        "primary_anomaly": "External Verification Unreachable (Zero Risk Added)",
+        "fields": {
+            "full_name": "ROHIT KASHYAP",
+            "document_number": "P1092834",
+            "nationality": "IND",
+            "date_of_birth": "1993-07-25",
+            "date_of_expiry": "2033-07-24",
+            "gender": "M"
+        },
+        "mrz_l1": "P<INDKASHYAP<<ROHIT<<<<<<<<<<<<<<<<<<<<<<<<<",
+        "mrz_l2": "P1092834<8IND9307252M3307249<<<<<<<<<<<<<<04",
+        "flags": {},
+        "face_match": "MATCH"
+    }
+]
+
+ALL_SCENARIOS = DEMO_SCENARIOS + EXTENDED_SCENARIOS
 
 class DemoService:
     @staticmethod
@@ -421,12 +469,12 @@ class DemoService:
         return f"/uploads/{doc_filename}", f"/uploads/{presented_filename}"
 
     @classmethod
-    def get_all_scenarios(cls) -> List[Dict[str, Any]]:
-        return DEMO_SCENARIOS
+    def get_all_scenarios(cls, include_extended: bool = False) -> List[Dict[str, Any]]:
+        return ALL_SCENARIOS if include_extended else DEMO_SCENARIOS
 
     @classmethod
     def get_scenario_by_id(cls, scenario_id: str) -> Optional[Dict[str, Any]]:
-        for s in DEMO_SCENARIOS:
+        for s in ALL_SCENARIOS:
             if s["id"] == scenario_id:
                 return s
         return None

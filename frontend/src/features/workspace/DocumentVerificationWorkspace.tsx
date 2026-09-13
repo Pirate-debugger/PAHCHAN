@@ -95,6 +95,7 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
   const [isDecisionModalOpen, setIsDecisionModalOpen] = useState<boolean>(false);
   const [activeDemoScenario, setActiveDemoScenario] = useState<string | null>(null);
   const [isDemoLoading, setIsDemoLoading] = useState<boolean>(false);
+  const [isRetrying, setIsRetrying] = useState<boolean>(false);
 
   // Sync if initialSession changes externally
   useEffect(() => {
@@ -105,13 +106,21 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
       setPhase('RESULT');
       setPipelineProgress(100);
       setTimelineSteps((prev) =>
-        prev.map((s) => ({ ...s, state: 'PASSED' as const }))
+        prev.map((s) => ({
+          ...s,
+          state: initialSession.status === 'ANALYSIS_FAILED' ? ('FAILED' as const) : ('PASSED' as const)
+        }))
       );
     }
   }, [initialSession]);
 
   // Execute verification pipeline with live scanning animation
-  const runLiveVerificationPipeline = async (sessionId: string, docUrl: string, docType: string) => {
+  const runLiveVerificationPipeline = async (
+    sessionId: string,
+    docUrl: string,
+    docType: string,
+    isRetry: boolean = false
+  ) => {
     setPhase('SCANNING');
     setPreviewUrl(docUrl);
     setDocumentType(docType);
@@ -122,7 +131,9 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
 
     try {
       // 1. Kick off backend analysis
-      const result = await api.analyzeScreening(sessionId);
+      const result = isRetry
+        ? await api.retryAnalysis(sessionId)
+        : await api.analyzeScreening(sessionId);
       setSession(result);
 
       // 2. Precompute real outcomes for each of the 10 stages based on backend analysis
@@ -278,10 +289,30 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
       } else {
         onNotify?.('success', 'Verification Completed', `Document conforms to authentic ${docType} government standards.`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      onNotify?.('error', 'Analysis Error', 'Failed to complete forensic analysis.');
-      setPhase('UPLOAD');
+      onNotify?.('error', 'Analysis Error', err?.message || 'Failed to complete forensic analysis.');
+      try {
+        const failedSession = await api.getScreening(sessionId);
+        setSession(failedSession);
+        setPhase('RESULT');
+      } catch {
+        setPhase('UPLOAD');
+      }
+    }
+  };
+
+  // Retry analysis handler
+  const handleRetryAnalysis = async () => {
+    if (!session) return;
+    try {
+      setIsRetrying(true);
+      const docUrl = previewUrl || session.documents[0]?.url || '';
+      await runLiveVerificationPipeline(session.id, docUrl, session.document_type, true);
+    } catch (err: any) {
+      onNotify?.('error', 'Retry Failed', err?.message || 'Failed to retry screening analysis.');
+    } finally {
+      setIsRetrying(false);
     }
   };
 
@@ -411,10 +442,11 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
   const confidenceScore = Math.max(14.5, Math.min(99.4, 100 - totalRiskScore * 0.92)).toFixed(1);
 
   // Result Outcome Categorization
-  const isVerified = riskLevel === 'LOW';
-  const isSuspicious = riskLevel === 'REVIEW';
-  const isCounterfeit = riskLevel === 'HIGH' || riskLevel === 'CRITICAL';
-  const isUnverifiable = timelineSteps[7]?.state === 'UNAVAILABLE';
+  const isAnalysisFailed = session?.status === 'ANALYSIS_FAILED';
+  const isVerified = !isAnalysisFailed && riskLevel === 'LOW';
+  const isSuspicious = !isAnalysisFailed && riskLevel === 'REVIEW';
+  const isCounterfeit = !isAnalysisFailed && (riskLevel === 'HIGH' || riskLevel === 'CRITICAL');
+  const isUnverifiable = !isAnalysisFailed && timelineSteps[7]?.state === 'UNAVAILABLE';
 
   const riskBreakdown: RiskPillarBreakdown = {
     document_integrity: Math.max(60, 100 - (session?.validations.filter(v => v.status === 'FAIL').length || 0) * 20),
@@ -547,6 +579,18 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
                 Officer Determination
               </Button>
 
+              {session.status === 'ANALYSIS_FAILED' && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleRetryAnalysis}
+                  leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
+                  disabled={isRetrying}
+                >
+                  {isRetrying ? 'Retrying...' : 'Retry Analysis'}
+                </Button>
+              )}
+
               <Button
                 variant="secondary"
                 size="sm"
@@ -559,7 +603,62 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
             </div>
           </div>
 
-          {/* 4 Distinct Result Experiences Banner */}
+          {/* Synthetic Demonstration Document Banner */}
+          {session.is_demo_scenario && (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 flex items-center justify-between gap-3 text-amber-950 shadow-xs">
+              <div className="flex items-center gap-2 text-xs font-bold">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>SYNTHETIC DEMONSTRATION DOCUMENT — NOT A REAL IDENTITY DOCUMENT</span>
+              </div>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-200/80 text-amber-900 border border-amber-300">
+                SOVEREIGN BENCHMARK LAB
+              </span>
+            </div>
+          )}
+
+          {/* 4 Distinct Result Experiences Banner or Failure Alert */}
+          {isAnalysisFailed ? (
+            <div className="p-5 rounded-2xl border bg-red-50/90 border-red-300 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 transition-all shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border bg-red-600 text-white border-red-700 shadow-md">
+                  <AlertOctagon className="w-6 h-6 stroke-[2.2]" />
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-black tracking-tight text-red-900">
+                      ANALYSIS FAILED — AUTOMATED VERIFICATION INCOMPLETE
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-red-100 text-red-800 border border-red-200">
+                      Status: ANALYSIS_FAILED
+                    </span>
+                  </div>
+                  <p className="text-xs text-red-700 font-medium mt-0.5 max-w-2xl">
+                    The automated analysis pipeline could not complete optical, forensic, or identity checks. The document file may be corrupt, inaccessible, or unreadable. Click retry below or upload a clean scan.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleRetryAnalysis}
+                  leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
+                  disabled={isRetrying}
+                >
+                  {isRetrying ? 'Retrying Pipeline...' : 'Retry Analysis'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleResetWorkspace}
+                >
+                  Scan New Document
+                </Button>
+              </div>
+            </div>
+          ) : (
           <div className={`p-4 rounded-2xl border flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 transition-all ${
             isUnverifiable
               ? 'bg-slate-100 border-slate-300'
@@ -649,6 +748,7 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
               </span>
             </div>
           </div>
+          )}
 
           {/* Optional Comparison Mode View */}
           {isComparisonMode ? (

@@ -8,9 +8,7 @@ import {
   Sparkles,
   FileText,
   Clock,
-  ArrowRight,
-  Command,
-  X
+  ArrowRight
 } from 'lucide-react';
 
 interface CommandPaletteProps {

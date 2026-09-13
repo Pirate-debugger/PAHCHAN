@@ -171,5 +171,5 @@ class SystemSettingsSchema(BaseModel):
     risk_threshold_high: int
     enable_demo_watchlist: bool
     demo_watchlist_name: str
-    ocr_engine: str = "EasyOCR + ICAO Doc 9303"
+    ocr_engine: str = "Windows Native OCR (winocr) + ICAO Doc 9303 MRZ Engine"
     face_quality_threshold: float = 35.0

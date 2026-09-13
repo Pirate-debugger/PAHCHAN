@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SystemSettings } from '../../types';
 import { api } from '../../services/api';
 import { Button } from '../../components/ui/Button';
-import { Settings, Save, Shield, AlertCircle, Database, Check, Sliders, Lock } from 'lucide-react';
+import { Settings, Save, Shield, AlertCircle, Database, Check, Sliders } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SystemSettings>({
@@ -11,10 +11,10 @@ export const SettingsPage: React.FC = () => {
     risk_threshold_high: 79,
     enable_demo_watchlist: true,
     demo_watchlist_name: 'Demonstration Verification Source',
-    ocr_engine: 'EasyOCR + ICAO Doc 9303',
+    ocr_engine: 'Windows Native OCR (winocr) + ICAO Doc 9303 MRZ Engine',
     face_quality_threshold: 35.0
   });
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {

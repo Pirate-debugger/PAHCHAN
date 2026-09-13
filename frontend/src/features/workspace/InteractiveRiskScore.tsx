@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import {
-  ShieldAlert,
   ShieldCheck,
-  AlertTriangle,
-  HelpCircle,
-  ChevronRight,
   Layers,
   Fingerprint,
   FileCheck,
@@ -33,10 +29,9 @@ export const InteractiveRiskScore: React.FC<InteractiveRiskScoreProps> = ({
   selectedCategory,
   onSelectCategory,
   primaryConcern,
-  recommendation
+  recommendation: _recommendation
 }) => {
   const [showConfidenceTooltip, setShowConfidenceTooltip] = useState(false);
-  const [showRiskTooltip, setShowRiskTooltip] = useState(false);
 
   // Status configuration
   let badgeBg = 'bg-emerald-50 text-emerald-800 border-emerald-300';
@@ -260,6 +255,15 @@ export const InteractiveRiskScore: React.FC<InteractiveRiskScoreProps> = ({
             </button>
           );
         })}
+      </div>
+
+      {/* Prototype Standard Disclaimer */}
+      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+        <span className="flex items-center gap-1.5">
+          <Info className="w-3 h-3 text-slate-400 shrink-0" />
+          <span>These prototype thresholds are not official government standards.</span>
+        </span>
+        <span className="font-mono text-[9px] text-slate-400">SIH2026188 PROTOTYPE</span>
       </div>
 
     </div>

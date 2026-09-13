@@ -19,9 +19,9 @@ from app.api.screenings import run_screening_analysis
 router = APIRouter(prefix="/demo", tags=["Demo Lab"])
 
 @router.get("/scenarios", response_model=List[DemoScenarioSummary])
-def list_demo_scenarios():
-    """List the 8 pre-configured synthetic SIH demonstration scenarios"""
-    scenarios = demo_service.get_all_scenarios()
+def list_demo_scenarios(include_extended: bool = False):
+    """List the pre-configured synthetic SIH demonstration scenarios"""
+    scenarios = demo_service.get_all_scenarios(include_extended=include_extended)
     results = []
     for s in scenarios:
         results.append(DemoScenarioSummary(

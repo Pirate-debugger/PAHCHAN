@@ -187,8 +187,8 @@ class OCRService:
         
         # 1. Deterministic Synthetic Demo Scenarios
         if "demo_doc_" in filename:
-            from app.services.demo_service import DEMO_SCENARIOS
-            for s in DEMO_SCENARIOS:
+            from app.services.demo_service import ALL_SCENARIOS
+            for s in ALL_SCENARIOS:
                 if s["id"] in filename:
                     l1 = s.get("mrz_l1", "")
                     l2 = s.get("mrz_l2", "")
@@ -278,7 +278,14 @@ class OCRService:
                         "fields": fields,
                         "mrz_data": mrz_data,
                         "doc_type_detected": s["document_type"],
-                        "raw_ocr_count": len(fields)
+                        "raw_ocr_count": len(fields),
+                        "classification": {
+                            "detected_type": s["document_type"],
+                            "confidence": 0.99,
+                            "aspect_ratio": 1.42,
+                            "is_portrait": False,
+                            "signals": ["DEMO_SCENARIO_GROUND_TRUTH"]
+                        }
                     }
 
         # 2. Non-demo / User-Uploaded Image Processing
@@ -356,8 +363,6 @@ class OCRService:
             name_match = re.search(r'Name\s+([A-Za-z\s]+?)(?=\s+Date|\s+Father|\s+Permanent|$)', raw_text, re.IGNORECASE)
             if name_match:
                 name_val = name_match.group(1).strip()
-            elif "Suraj" in raw_text:
-                name_val = "Suraj Prakash Gupta"
 
             # Extract Date of Birth
             dob_match = re.search(r'\b(\d{2}[/-]\d{2}[/-]\d{4})\b', raw_text)
@@ -426,8 +431,6 @@ class OCRService:
             # Name: e.g. Name: AMIT KUMAR SHARMA
             name_match = re.search(r'Name\s*:?\s*([A-Za-z\s]+?)(?=\s+DOB|\s+Date|\s+Address|\s+Class|\s+Valid|$)', raw_text, re.IGNORECASE)
             name_val = name_match.group(1).strip() if name_match else ""
-            if not name_val and "Suraj" in raw_text:
-                name_val = "Suraj Prakash Gupta"
 
             dates = re.findall(r'\b\d{2}[/-]\d{2}[/-]\d{4}\b', raw_text)
             dob_val = dates[0] if len(dates) > 0 else "1995-04-12"
@@ -475,8 +478,6 @@ class OCRService:
 
             name_match = re.search(r'Elector\'?s?\s+Name\s*:?\s*([A-Za-z\s]+)', raw_text, re.IGNORECASE)
             name_val = name_match.group(1).strip() if name_match else ""
-            if not name_val and "Suraj" in raw_text:
-                name_val = "Suraj Prakash Gupta"
 
             fields.extend([
                 {
@@ -519,8 +520,6 @@ class OCRService:
                 name_match = re.search(r'Surname\s*/\s*Given\s*Name\(s\)\s*([A-Za-z\s]+?)(?=\s+INDIAN|\s+Nationality|\s+Date|$)', raw_text, re.IGNORECASE)
                 if name_match:
                     name_val = name_match.group(1).strip()
-            if not name_val and "Suraj" in raw_text:
-                name_val = "Suraj Prakash Gupta"
 
             dates = re.findall(r'\b\d{2}[/-]\d{2}[/-]\d{4}\b', raw_text)
             dob_val = mrz_data.get("dob") or (dates[0] if len(dates) > 0 else "")

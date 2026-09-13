@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ScreeningSessionSummary, RiskLevel, SessionStatus } from '../../types';
+import { ScreeningSessionSummary } from '../../types';
 import { api } from '../../services/api';
 import { RiskBadge } from '../../components/common/RiskBadge';
 import { StatusPill } from '../../components/common/StatusPill';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { Search, Filter, ArrowRight, RefreshCw, Plus, ShieldAlert, FileText, CheckCircle2 } from 'lucide-react';
+import { Search, ArrowRight, RefreshCw, Plus, ShieldAlert } from 'lucide-react';
 
 interface ScreeningListPageProps {
   onOpenCase: (caseId: string) => void;

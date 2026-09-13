@@ -1,24 +1,14 @@
 import React from 'react';
 import {
-  FileText,
-  Scan,
-  FileScan,
-  QrCode,
-  CreditCard,
-  Layers,
-  Cpu,
   ShieldCheck,
-  Users,
   CheckCircle2,
   AlertTriangle,
   XCircle,
   Clock,
   Loader2,
-  MinusCircle,
-  ChevronDown,
-  ChevronRight
+  MinusCircle
 } from 'lucide-react';
-import { TimelineStep, StepState, TimelineStepId } from '../../types';
+import { TimelineStep, TimelineStepId } from '../../types';
 
 interface VerificationTimelineProps {
   steps: TimelineStep[];
@@ -26,19 +16,6 @@ interface VerificationTimelineProps {
   overallProgress?: number;
   className?: string;
 }
-
-export const STAGE_ICONS: Record<TimelineStepId, React.ComponentType<{ className?: string }>> = {
-  received: FileText,
-  classify: Scan,
-  ocr: FileScan,
-  qr: QrCode,
-  mrz: CreditCard,
-  structure: Layers,
-  tamper: Cpu,
-  authority: ShieldCheck,
-  identity: Users,
-  risk: CheckCircle2
-};
 
 export const VerificationTimeline: React.FC<VerificationTimelineProps> = ({
   steps,
@@ -78,7 +55,6 @@ export const VerificationTimeline: React.FC<VerificationTimelineProps> = ({
       {/* Steps List */}
       <div className="space-y-1.5 overflow-y-auto flex-1 pr-1">
         {steps.map((step, index) => {
-          const Icon = STAGE_ICONS[step.id] || FileText;
           const isCurrent = currentStepId === step.id || step.state === 'PROCESSING';
 
           // Status icon & badge color

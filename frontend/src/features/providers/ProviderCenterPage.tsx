@@ -1,15 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Building2,
-  ShieldCheck,
   CheckCircle2,
-  AlertTriangle,
-  XCircle,
   RefreshCw,
   Server,
   Zap,
-  Lock,
-  ExternalLink,
   Activity
 } from 'lucide-react';
 import { ProviderStatusInfo } from '../../types';
@@ -87,7 +81,6 @@ export const ProviderCenterPage: React.FC = () => {
         {providers.map((p) => {
           const isConnected = p.status === 'CONNECTED';
           const isSandbox = p.status === 'SANDBOX' || p.status === 'DEMO_SANDBOX';
-          const isNotConfigured = p.status === 'NOT_CONFIGURED';
           const pingData = pingResult[p.provider_id];
 
           return (

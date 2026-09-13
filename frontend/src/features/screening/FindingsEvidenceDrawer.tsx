@@ -246,6 +246,14 @@ export const FindingsEvidenceDrawer: React.FC<FindingsEvidenceDrawerProps> = ({
               <span>{faceVerification.recommendation}</span>
             </div>
 
+            {/* Face Comparison Screening Advisory Banner */}
+            <div className="p-2 rounded-xl bg-amber-50/80 border border-amber-200/90 text-[11px] text-amber-900 flex items-center gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span className="font-medium">
+                Face comparison is a screening signal and requires human review.
+              </span>
+            </div>
+
             {faceVerification.risk_contribution > 0 && (
               <div className="flex justify-end">
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
