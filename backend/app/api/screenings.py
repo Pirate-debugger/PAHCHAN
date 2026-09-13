@@ -3,7 +3,7 @@ import uuid
 import json
 import logging
 from datetime import datetime, timezone, date
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
@@ -20,6 +20,8 @@ from app.models.screening import (
     RiskAssessment,
     ScreeningDecision,
     AuditLogEntry,
+    ExternalVerificationResult,
+    OCRRawResult,
     generate_case_id
 )
 from app.schemas.screening import (
@@ -238,6 +240,54 @@ async def create_screening(
         details=f"New screening case created with document {os.path.basename(document_file.filename or 'doc')}"
     )
 
+    # Immediately perform optical OCR extraction so fields are available for officer review/correction
+    try:
+        ocr_res = ocr_service.extract_from_image(primary_doc.file_path, session.document_type)
+        extracted_fields = ocr_res.get("fields", [])
+        raw_text = ocr_res.get("raw_text", "")
+
+        ocr_raw = OCRRawResult(
+            id=str(uuid.uuid4()),
+            session_id=case_id,
+            engine_used=ocr_res.get("engine_used", "Windows Native OCR (winocr)"),
+            raw_text=raw_text,
+            confidence_score=0.92,
+            processing_time_ms=ocr_res.get("processing_time_ms", 120.0),
+            language_detected="en",
+            rotation_angle=ocr_res.get("rotation_angle", 0.0)
+        )
+        db.add(ocr_raw)
+
+        for f in extracted_fields:
+            field_obj = ExtractedField(
+                id=str(uuid.uuid4()),
+                session_id=case_id,
+                field_key=f["field_key"],
+                field_label=f["field_label"],
+                field_value=f["field_value"],
+                original_value=f["field_value"],
+                confidence=f.get("confidence", 0.90),
+                bbox_ymin=f.get("bbox_ymin"),
+                bbox_xmin=f.get("bbox_xmin"),
+                bbox_ymax=f.get("bbox_ymax"),
+                bbox_xmax=f.get("bbox_xmax"),
+                source_zone=f.get("source_zone", "VIZ")
+            )
+            db.add(field_obj)
+
+        session.status = "OCR_COMPLETED"
+        db.commit()
+
+        AuditService.log(
+            db=db,
+            session_id=case_id,
+            action="OCR_COMPLETED",
+            details=f"Initial optical extraction completed: {len(extracted_fields)} fields ready for review."
+        )
+    except Exception as ocr_err:
+        logger.warning(f"[Screenings] Initial OCR extraction warning: {ocr_err}")
+        db.commit()
+
     return ScreeningSessionSummary(
         id=session.id,
         created_at=session.created_at,
@@ -315,8 +365,41 @@ def get_screening_detail(session_id: str, db: Session = Depends(get_db)):
             "bbox_ymax": f.bbox_ymax,
             "bbox_xmax": f.bbox_xmax,
             "technical_details": f.technical_details,
-            "risk_contribution": f.risk_contribution
+            "risk_contribution": f.risk_contribution,
+            "confidence": getattr(f, "confidence", 0.90) if getattr(f, "confidence", 0.90) is not None else 0.90,
+            "recommended_action": getattr(f, "recommended_action", "SECONDARY_REVIEW") or "SECONDARY_REVIEW",
+            "requires_manual_review": getattr(f, "requires_manual_review", True) if getattr(f, "requires_manual_review", True) is not None else True
         } for f in session.forensic_findings
+    ]
+
+    external_verifs = [
+        {
+            "id": ev.id,
+            "provider": ev.provider,
+            "document_type": ev.document_type,
+            "status": ev.status,
+            "is_matched": ev.is_matched,
+            "is_mock": ev.is_mock,
+            "fields_checked": json.loads(ev.fields_checked) if ev.fields_checked else [],
+            "mismatches": json.loads(ev.mismatches) if ev.mismatches else [],
+            "evidence_id": ev.evidence_id,
+            "checked_at": ev.checked_at,
+            "error_code": ev.error_code,
+            "message": ev.message
+        } for ev in session.external_verifications
+    ]
+
+    ocr_raw_list = [
+        {
+            "id": raw.id,
+            "engine_used": raw.engine_used,
+            "raw_text": raw.raw_text,
+            "confidence_score": raw.confidence_score,
+            "processing_time_ms": raw.processing_time_ms,
+            "language_detected": raw.language_detected,
+            "rotation_angle": raw.rotation_angle,
+            "created_at": raw.created_at
+        } for raw in session.ocr_raw_results
     ]
 
     face = None
@@ -388,6 +471,8 @@ def get_screening_detail(session_id: str, db: Session = Depends(get_db)):
         extracted_fields=fields,
         validations=vals,
         forensic_findings=findings,
+        external_verifications=external_verifs,
+        ocr_raw_results=ocr_raw_list,
         face_verification=face,
         risk_assessment=risk,
         decisions=decs,
@@ -400,46 +485,77 @@ def _execute_analysis_pipeline(
     presented_path: Optional[str],
     flags: Dict[str, Any],
     force_face_outcome: Optional[str],
-    db: Session
+    db: Session,
+    force_ocr_rescan: bool = False
 ):
     session_id = session.id
 
-    # Step 1: OCR & MRZ Extraction
-    ocr_res = ocr_service.extract_from_image(primary_doc.file_path, session.document_type)
-    extracted_fields = ocr_res.get("fields", [])
-    mrz_data = ocr_res.get("mrz_data", {})
-
+    # Step 1: OCR & MRZ Extraction (Preserve human officer edits if fields already exist)
+    existing_fields = db.query(ExtractedField).filter(ExtractedField.session_id == session_id).all()
     fields_map = {}
-    for f in extracted_fields:
-        field_obj = ExtractedField(
+    mrz_data = {}
+    doc_type_detected = None
+    classification_info = None
+
+    if not existing_fields or force_ocr_rescan:
+        if force_ocr_rescan and existing_fields:
+            db.query(ExtractedField).filter(ExtractedField.session_id == session_id).delete()
+            db.commit()
+
+        ocr_res = ocr_service.extract_from_image(primary_doc.file_path, session.document_type)
+        extracted_fields = ocr_res.get("fields", [])
+        mrz_data = ocr_res.get("mrz_data", {})
+        doc_type_detected = ocr_res.get("doc_type_detected")
+        classification_info = ocr_res.get("classification")
+        raw_text = ocr_res.get("raw_text", "")
+
+        ocr_raw = OCRRawResult(
             id=str(uuid.uuid4()),
             session_id=session_id,
-            field_key=f["field_key"],
-            field_label=f["field_label"],
-            field_value=f["field_value"],
-            original_value=f["field_value"],
-            confidence=f["confidence"],
-            bbox_ymin=f["bbox_ymin"],
-            bbox_xmin=f["bbox_xmin"],
-            bbox_ymax=f["bbox_ymax"],
-            bbox_xmax=f["bbox_xmax"],
-            source_zone=f["source_zone"]
+            engine_used=ocr_res.get("engine_used", "Windows Native OCR (winocr)"),
+            raw_text=raw_text,
+            confidence_score=0.92,
+            processing_time_ms=ocr_res.get("processing_time_ms", 120.0),
+            language_detected="en",
+            rotation_angle=ocr_res.get("rotation_angle", 0.0)
         )
-        db.add(field_obj)
-        fields_map[f["field_key"]] = f["field_value"]
+        db.add(ocr_raw)
 
-    db.commit()
-    AuditService.log(
-        db=db,
-        session_id=session_id,
-        action="OCR_COMPLETED",
-        details=f"OCR extraction completed: {len(extracted_fields)} fields identified."
-    )
+        for f in extracted_fields:
+            field_obj = ExtractedField(
+                id=str(uuid.uuid4()),
+                session_id=session_id,
+                field_key=f["field_key"],
+                field_label=f["field_label"],
+                field_value=f["field_value"],
+                original_value=f["field_value"],
+                confidence=f.get("confidence", 0.90),
+                bbox_ymin=f.get("bbox_ymin"),
+                bbox_xmin=f.get("bbox_xmin"),
+                bbox_ymax=f.get("bbox_ymax"),
+                bbox_xmax=f.get("bbox_xmax"),
+                source_zone=f.get("source_zone", "VIZ")
+            )
+            db.add(field_obj)
+            fields_map[f["field_key"]] = f["field_value"]
+
+        db.commit()
+        AuditService.log(
+            db=db,
+            session_id=session_id,
+            action="OCR_COMPLETED",
+            details=f"OCR optical extraction completed: {len(extracted_fields)} fields identified."
+        )
+    else:
+        # Retain officer edits and loaded fields!
+        fields_map = {f.field_key: f.field_value for f in existing_fields}
+        # Parse MRZ and classification from document
+        ocr_res = ocr_service.extract_from_image(primary_doc.file_path, session.document_type)
+        mrz_data = ocr_res.get("mrz_data", {})
+        doc_type_detected = ocr_res.get("doc_type_detected")
+        classification_info = ocr_res.get("classification")
 
     # Step 2: Document Validation Check
-    doc_type_detected = ocr_res.get("doc_type_detected")
-    classification_info = ocr_res.get("classification")
-
     val_results = validation_service.validate_document(
         fields_map=fields_map,
         mrz_data=mrz_data,
@@ -448,7 +564,7 @@ def _execute_analysis_pipeline(
         classification_info=classification_info
     )
 
-    # Step 2b: Query Authoritative Verification Provider (NSDL, Parivahan, ECI, Passport PKD)
+    # Step 2b: Query Authoritative Verification Provider (NSDL, Parivahan, ECI, Passport PKD, IVFRT, SSB Permit)
     from app.services.providers.registry import provider_registry
     matched_providers = provider_registry.resolve_provider_for_document(session.document_type)
     if matched_providers and fields_map.get("document_number"):
@@ -459,25 +575,51 @@ def _execute_analysis_pipeline(
                 identifier=fields_map.get("document_number"),
                 extracted_fields=fields_map
             )
+
+            fields_checked_data = getattr(prov_res, "trusted_fields", {}) or getattr(prov_res, "matched_fields", {})
+            mismatches_data = getattr(prov_res, "mismatches", []) or getattr(prov_res, "discrepancies", [])
+            evidence_id = getattr(prov_res, "evidence_reference", None)
+            error_code = getattr(prov_res, "error_code", None)
+            metadata_dict = getattr(prov_res, "response_metadata", {}) or getattr(prov_res, "metadata", {})
+
+            # Persist normalized ExternalVerificationResult
+            ext_record = ExternalVerificationResult(
+                id=str(uuid.uuid4()),
+                session_id=session_id,
+                provider=primary_provider.provider_name,
+                document_type=session.document_type,
+                status=prov_res.status,
+                is_matched=prov_res.is_matched,
+                is_mock=prov_res.is_sandbox,
+                fields_checked=json.dumps(fields_checked_data),
+                mismatches=json.dumps(mismatches_data),
+                evidence_id=evidence_id,
+                error_code=error_code,
+                message=prov_res.evidence_notes or prov_res.status,
+                raw_response=json.dumps(metadata_dict) if metadata_dict else None
+            )
+            db.add(ext_record)
+
             if prov_res.status == "VERIFIED" and prov_res.is_matched:
                 val_results.append({
                     "rule_id": "VAL_PROVIDER_AUTHORITY",
                     "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
                     "category": "GATEWAY",
                     "status": "PASS",
-                    "message": f"Verified against {primary_provider.provider_name} ({'Sandbox / Demo Mode' if prov_res.is_sandbox else 'Official Live Registry'}).",
+                    "message": f"Verified against {primary_provider.provider_name} ({'Synthetic Sandbox / Demonstration Result' if prov_res.is_sandbox else 'Official Live Registry'}).",
                     "details": prov_res.evidence_notes,
                     "risk_points": 0
                 })
-            elif prov_res.status in ["UNVERIFIABLE", "NOT_CONFIGURED"]:
+            elif prov_res.status in ["UNVERIFIABLE", "NOT_CONFIGURED", "SERVICE_UNAVAILABLE"]:
+                # System outages / unconfigured gateways must NEVER add fraud risk points!
                 val_results.append({
                     "rule_id": "VAL_PROVIDER_AUTHORITY",
                     "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
                     "category": "GATEWAY",
                     "status": "WARNING",
                     "message": f"External verification unavailable: {prov_res.evidence_notes}",
-                    "details": f"Local physical & optical checks completed. Official registry status: {prov_res.status}.",
-                    "risk_points": 5
+                    "details": f"Local optical & forensic checks completed. Gateway status: {prov_res.status}. Zero risk penalty applied.",
+                    "risk_points": 0
                 })
             elif prov_res.status == "MISMATCH" or not prov_res.is_matched:
                 val_results.append({
@@ -485,7 +627,7 @@ def _execute_analysis_pipeline(
                     "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
                     "category": "GATEWAY",
                     "status": "FAIL",
-                    "message": f"Official Registry Verification Failed: {prov_res.evidence_notes}",
+                    "message": f"Official Registry Verification Discrepancy: {prov_res.evidence_notes}",
                     "details": f"Checked identifier '{prov_res.identifier_checked}' against {primary_provider.provider_name}.",
                     "risk_points": 35
                 })
@@ -501,13 +643,27 @@ def _execute_analysis_pipeline(
                 })
         except Exception as prov_err:
             logger.warning(f"[Screenings] Provider check error: {prov_err}")
+            ext_record = ExternalVerificationResult(
+                id=str(uuid.uuid4()),
+                session_id=session_id,
+                provider=primary_provider.provider_name,
+                document_type=session.document_type,
+                status="SERVICE_UNAVAILABLE",
+                is_matched=False,
+                is_mock=True,
+                fields_checked=json.dumps([]),
+                mismatches=json.dumps([]),
+                error_code="GATEWAY_TIMEOUT",
+                message=f"External gateway connection unreachable: {str(prov_err)}"
+            )
+            db.add(ext_record)
             val_results.append({
                 "rule_id": "VAL_PROVIDER_AUTHORITY",
                 "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
                 "category": "GATEWAY",
                 "status": "WARNING",
                 "message": f"External verification unavailable ({primary_provider.provider_name} unreachable).",
-                "details": f"Local verification completed successfully. Gateway error: {str(prov_err)}",
+                "details": f"Local verification completed successfully. Gateway error: {str(prov_err)}. Zero risk points added.",
                 "risk_points": 0
             })
 
@@ -592,7 +748,10 @@ def _execute_analysis_pipeline(
             bbox_ymax=f["bbox_ymax"],
             bbox_xmax=f["bbox_xmax"],
             technical_details=f["technical_details"],
-            risk_contribution=f["risk_contribution"]
+            risk_contribution=f["risk_contribution"],
+            confidence=f.get("confidence", 0.90) if f.get("confidence", 0.90) is not None else 0.90,
+            recommended_action=f.get("recommended_action", "SECONDARY_REVIEW") or "SECONDARY_REVIEW",
+            requires_manual_review=f.get("requires_manual_review", True) if f.get("requires_manual_review", True) is not None else True
         )
         db.add(find_obj)
 
@@ -736,12 +895,12 @@ def run_screening_analysis(
         except Exception:
             pass
 
-    # Clear previous results if re-analyzing
-    db.query(ExtractedField).filter(ExtractedField.session_id == session_id).delete()
+    # Clear previous pipeline results if re-analyzing (PRESERVE extracted fields & officer corrections!)
     db.query(ValidationResult).filter(ValidationResult.session_id == session_id).delete()
     db.query(ForensicFinding).filter(ForensicFinding.session_id == session_id).delete()
     db.query(FaceVerification).filter(FaceVerification.session_id == session_id).delete()
     db.query(RiskAssessment).filter(RiskAssessment.session_id == session_id).delete()
+    db.query(ExternalVerificationResult).filter(ExternalVerificationResult.session_id == session_id).delete()
     db.commit()
 
     try:
@@ -770,37 +929,219 @@ def run_screening_analysis(
             detail=f"Analysis pipeline failed: {str(e)}"
         )
 
-@router.post("/{session_id}/retry-analysis")
-def retry_screening_analysis(
+@router.post("/{session_id}/extract-ocr")
+def extract_document_ocr(
     session_id: str,
-    force_scenario_flags: Optional[str] = None,
-    force_face_outcome: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
-    Retry an automated screening analysis that previously failed or needs re-evaluation.
-    Resets status to PENDING and re-runs the full automated pipeline.
+    Explicitly extract or re-extract optical OCR fields from primary document.
+    Updates session status to OCR_COMPLETED so fields are ready for officer review.
     """
     session = db.query(ScreeningSession).filter(ScreeningSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Screening session not found")
 
-    session.status = "PENDING"
+    primary_doc = db.query(Document).filter(
+        Document.session_id == session_id,
+        Document.category == "PRIMARY_DOCUMENT"
+    ).first()
+
+    if not primary_doc or not os.path.exists(primary_doc.file_path):
+        raise HTTPException(status_code=400, detail="Primary document image missing or inaccessible")
+
+    # Clear previous OCR fields and raw logs for fresh extraction
+    db.query(ExtractedField).filter(ExtractedField.session_id == session_id).delete()
+    db.query(OCRRawResult).filter(OCRRawResult.session_id == session_id).delete()
     db.commit()
 
-    AuditService.log(
-        db=db,
-        session_id=session_id,
-        action="ANALYSIS_RETRY_INITIATED",
-        details="Authorized officer or automated trigger requested screening analysis retry"
+    try:
+        ocr_res = ocr_service.extract_from_image(primary_doc.file_path, session.document_type)
+        extracted_fields = ocr_res.get("fields", [])
+        raw_text = ocr_res.get("raw_text", "")
+
+        ocr_raw = OCRRawResult(
+            id=str(uuid.uuid4()),
+            session_id=session_id,
+            engine_used=ocr_res.get("engine_used", "Windows Native OCR (winocr)"),
+            raw_text=raw_text,
+            confidence_score=0.92,
+            processing_time_ms=ocr_res.get("processing_time_ms", 120.0),
+            language_detected="en",
+            rotation_angle=ocr_res.get("rotation_angle", 0.0)
+        )
+        db.add(ocr_raw)
+
+        for f in extracted_fields:
+            field_obj = ExtractedField(
+                id=str(uuid.uuid4()),
+                session_id=session_id,
+                field_key=f["field_key"],
+                field_label=f["field_label"],
+                field_value=f["field_value"],
+                original_value=f["field_value"],
+                confidence=f.get("confidence", 0.90),
+                bbox_ymin=f.get("bbox_ymin"),
+                bbox_xmin=f.get("bbox_xmin"),
+                bbox_ymax=f.get("bbox_ymax"),
+                bbox_xmax=f.get("bbox_xmax"),
+                source_zone=f.get("source_zone", "VIZ")
+            )
+            db.add(field_obj)
+
+        session.status = "OCR_COMPLETED"
+        db.commit()
+
+        AuditService.log(
+            db=db,
+            session_id=session_id,
+            action="OCR_COMPLETED",
+            details=f"OCR optical scan completed: {len(extracted_fields)} fields ready for review."
+        )
+    except Exception as e:
+        logger.warning(f"[Screenings] extract_document_ocr error: {e}")
+        raise HTTPException(status_code=500, detail=f"OCR extraction failed: {str(e)}")
+
+    return get_screening_detail(session_id, db)
+
+def recalc_screening_risk_and_validations(session_id: str, db: Session):
+    """
+    Recalculate validations and risk score after an extracted field has been edited.
+    Only triggers if the screening was previously analyzed (has a RiskAssessment).
+    """
+    session = db.query(ScreeningSession).filter(ScreeningSession.id == session_id).first()
+    if not session:
+        return
+
+    ra = db.query(RiskAssessment).filter(RiskAssessment.session_id == session_id).first()
+    if not ra:
+        return
+
+    fields = db.query(ExtractedField).filter(ExtractedField.session_id == session_id).all()
+    fields_map = {f.field_key: f.field_value for f in fields}
+
+    primary_doc = db.query(Document).filter(
+        Document.session_id == session_id,
+        Document.category == "PRIMARY_DOCUMENT"
+    ).first()
+
+    mrz_data = {}
+    doc_type_detected = None
+    classification_info = None
+    if primary_doc and os.path.exists(primary_doc.file_path):
+        ocr_res = ocr_service.extract_from_image(primary_doc.file_path, session.document_type)
+        mrz_data = ocr_res.get("mrz_data", {})
+        doc_type_detected = ocr_res.get("doc_type_detected")
+        classification_info = ocr_res.get("classification")
+
+    val_results = validation_service.validate_document(
+        fields_map=fields_map,
+        mrz_data=mrz_data,
+        doc_type=session.document_type,
+        doc_type_detected=doc_type_detected,
+        classification_info=classification_info
     )
 
-    return run_screening_analysis(
-        session_id=session_id,
-        force_scenario_flags=force_scenario_flags,
-        force_face_outcome=force_face_outcome,
-        db=db
+    # Re-evaluate authoritative gateway with corrected fields
+    from app.services.providers.registry import provider_registry
+    matched_providers = provider_registry.resolve_provider_for_document(session.document_type)
+    if matched_providers and fields_map.get("document_number"):
+        primary_provider = matched_providers[0]
+        try:
+            prov_res = primary_provider.verify_document(
+                doc_type=session.document_type,
+                identifier=fields_map.get("document_number"),
+                extracted_fields=fields_map
+            )
+            if prov_res.status == "VERIFIED" and prov_res.is_matched:
+                val_results.append({
+                    "rule_id": "VAL_PROVIDER_AUTHORITY",
+                    "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
+                    "category": "GATEWAY",
+                    "status": "PASS",
+                    "message": f"Verified against {primary_provider.provider_name} ({'Synthetic Sandbox / Demonstration Result' if prov_res.is_sandbox else 'Official Live Registry'}).",
+                    "details": prov_res.evidence_notes,
+                    "risk_points": 0
+                })
+            elif prov_res.status in ["UNVERIFIABLE", "NOT_CONFIGURED", "SERVICE_UNAVAILABLE"]:
+                val_results.append({
+                    "rule_id": "VAL_PROVIDER_AUTHORITY",
+                    "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
+                    "category": "GATEWAY",
+                    "status": "WARNING",
+                    "message": f"External verification unavailable: {prov_res.evidence_notes}",
+                    "details": f"Local verification completed. Gateway status: {prov_res.status}. Zero risk penalty applied.",
+                    "risk_points": 0
+                })
+            elif prov_res.status == "MISMATCH" or not prov_res.is_matched:
+                val_results.append({
+                    "rule_id": "VAL_PROVIDER_AUTHORITY",
+                    "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
+                    "category": "GATEWAY",
+                    "status": "FAIL",
+                    "message": f"Official Registry Verification Discrepancy: {prov_res.evidence_notes}",
+                    "details": f"Checked identifier '{prov_res.identifier_checked}' against {primary_provider.provider_name}.",
+                    "risk_points": 35
+                })
+        except Exception:
+            pass
+
+    # Replace validations in DB
+    db.query(ValidationResult).filter(ValidationResult.session_id == session_id).delete()
+    for v in val_results:
+        val_obj = ValidationResult(
+            id=str(uuid.uuid4()),
+            session_id=session_id,
+            rule_id=v["rule_id"],
+            rule_name=v["rule_name"],
+            category=v["category"],
+            status=v["status"],
+            message=v["message"],
+            details=v.get("details"),
+            risk_points=v["risk_points"]
+        )
+        db.add(val_obj)
+
+    # Fetch existing forensic findings and face verification
+    existing_findings = db.query(ForensicFinding).filter(ForensicFinding.session_id == session_id).all()
+    forensics_data = [
+        {
+            "id": f.id,
+            "category": f.category,
+            "severity": f.severity,
+            "title": f.title,
+            "explanation": f.explanation,
+            "risk_contribution": f.risk_contribution
+        }
+        for f in existing_findings
+    ]
+
+    face_rec = db.query(FaceVerification).filter(FaceVerification.session_id == session_id).first()
+    face_res = None
+    if face_rec:
+        face_res = {
+            "outcome": face_rec.outcome,
+            "risk_contribution": face_rec.risk_contribution,
+            "explanation": face_rec.explanation,
+            "similarity_score": face_rec.similarity_score
+        }
+
+    # Recalculate risk
+    risk_res = risk_service.calculate_risk(
+        validations=val_results,
+        forensics=forensics_data,
+        face_result=face_res,
+        identity_result=None
     )
+
+    ra.total_score = risk_res["total_score"]
+    ra.risk_level = risk_res["risk_level"]
+    ra.primary_concern = risk_res["primary_concern"]
+    ra.recommendation = risk_res["recommendation"]
+    ra.contributing_factors = json.dumps(risk_res["contributing_factors"])
+
+    session.status = "IN_REVIEW" if risk_res["risk_level"] in ["REVIEW", "HIGH", "CRITICAL"] else "COMPLETED"
+    db.commit()
 
 @router.post("/{session_id}/decision")
 def record_screening_decision(
@@ -846,7 +1187,7 @@ def edit_extracted_field(
     req: EditFieldRequest,
     db: Session = Depends(get_db)
 ):
-    """Allow authorized officer to correct an extracted OCR field with audit trail"""
+    """Allow authorized officer to correct an extracted OCR field with audit trail & automatic risk recalculation"""
     field = db.query(ExtractedField).filter(
         ExtractedField.session_id == session_id,
         ExtractedField.field_key == field_key
@@ -866,6 +1207,9 @@ def edit_extracted_field(
         action="FIELD_CORRECTED",
         details=f"Field '{field.field_label}' corrected from '{old_val}' to '{req.new_value}'. Notes: {req.officer_notes or 'None'}"
     )
+
+    # Recalculate validations and risk score if session was previously analyzed
+    recalc_screening_risk_and_validations(session_id, db)
 
     return {"status": "SUCCESS", "field_key": field_key, "new_value": req.new_value}
 

@@ -79,6 +79,18 @@ class PassportProvider(VerificationProvider):
             )
 
         if not self._has_credentials():
+            if cleaned_num == "P1092834":
+                return ProviderVerificationResult(
+                    provider_id=self.provider_id,
+                    provider_name=self.provider_name,
+                    is_sandbox=True,
+                    is_matched=False,
+                    status="SERVICE_UNAVAILABLE",
+                    identifier_checked=cleaned_num,
+                    evidence_notes="[SYNTHETIC DEMONSTRATION OUTAGE] Passport Seva network gateway connection timeout (HTTP 503 Service Unavailable).",
+                    response_metadata={"gateway_status": "TIMEOUT", "error_code": "GATEWAY_TIMEOUT"}
+                )
+
             # Interpol SLTD demo stolen passport blacklist check
             stolen_demo_passports = ["J8392018", "T4928104", "N7109283"]
             if cleaned_num in stolen_demo_passports:

@@ -359,14 +359,15 @@ class ValidationService:
                     if exp_date:
                         today = date.today()
                         if exp_date < today:
+                            # An expired document is an operational validity flag, not proof of counterfeit fraud
                             results.append({
                                 "rule_id": "VAL_EXPIRY_DATE",
                                 "rule_name": "Document Expiration Check",
                                 "category": "EXPIRY",
-                                "status": "FAIL",
+                                "status": "WARNING",
                                 "message": f"Document expired on {exp_date.strftime('%d %b %Y')}",
-                                "details": f"The document expiration date ({exp_date}) precedes the current screening date ({today}).",
-                                "risk_points": 40
+                                "details": f"The document expiration date ({exp_date}) precedes the current screening date ({today}). Operational review advised for validity extension; not classified as counterfeit.",
+                                "risk_points": 15
                             })
                         else:
                             results.append({
@@ -386,7 +387,7 @@ class ValidationService:
                         "status": "WARNING",
                         "message": "Unable to verify expiration date format.",
                         "details": str(e),
-                        "risk_points": 10
+                        "risk_points": 5
                     })
 
         # -----------------------------------------------------------------
@@ -479,8 +480,11 @@ class ValidationService:
         # -----------------------------------------------------------------
         # 9. CROSS-DOCUMENT (Passport vs Visa) VALIDATION
         # -----------------------------------------------------------------
-        if visa_fields_map:
-            visa_passport_ref = visa_fields_map.get("passport_number_ref", "").strip().upper()
+        effective_visa_map = visa_fields_map or (
+            {"passport_number_ref": fields_map.get("passport_number_ref")} if "passport_number_ref" in fields_map else None
+        )
+        if effective_visa_map:
+            visa_passport_ref = effective_visa_map.get("passport_number_ref", "").strip().upper()
             primary_doc_num = fields_map.get("document_number", "").strip().upper()
 
             if visa_passport_ref and primary_doc_num:
@@ -504,6 +508,75 @@ class ValidationService:
                         "details": f"Both documents consistently reference #{primary_doc_num}.",
                         "risk_points": 0
                     })
+
+        # -----------------------------------------------------------------
+        # 9b. VIZ (Visual Inspection Zone) vs MRZ Consistency Check
+        # -----------------------------------------------------------------
+        if mrz_data and mrz_data.get("document_number"):
+            mrz_doc_num = mrz_data.get("document_number", "").strip().upper()
+            viz_doc_num = fields_map.get("document_number", "").strip().upper()
+            
+            if viz_doc_num and mrz_doc_num and viz_doc_num != mrz_doc_num:
+                results.append({
+                    "rule_id": "VAL_VIZ_MRZ_CONSISTENCY",
+                    "rule_name": "VIZ vs MRZ Document Number Consistency",
+                    "category": "CONSISTENCY",
+                    "status": "MISMATCH",
+                    "message": f"Document number mismatch: VIZ shows '{viz_doc_num}' but MRZ line encodes '{mrz_doc_num}'.",
+                    "details": "Potential visual text manipulation or substituted MRZ Machine Readable Zone.",
+                    "risk_points": 35
+                })
+            elif viz_doc_num and mrz_doc_num:
+                results.append({
+                    "rule_id": "VAL_VIZ_MRZ_CONSISTENCY",
+                    "rule_name": "VIZ vs MRZ Document Number Consistency",
+                    "category": "CONSISTENCY",
+                    "status": "PASS",
+                    "message": f"Visual Inspection Zone matches MRZ encoded number '{viz_doc_num}'.",
+                    "details": "Document number is consistent across optical and machine-readable zones.",
+                    "risk_points": 0
+                })
+
+        # -----------------------------------------------------------------
+        # 9c. DATE OF ISSUE VALIDATION & CHRONOLOGY
+        # -----------------------------------------------------------------
+        doi_str = fields_map.get("date_of_issue")
+        if doi_str:
+            try:
+                doi_date = None
+                if "-" in doi_str:
+                    p = doi_str.split("-")
+                    if len(p) == 3:
+                        doi_date = date(int(p[0]), int(p[1]), int(p[2]))
+                elif "/" in doi_str:
+                    p = doi_str.split("/")
+                    if len(p) == 3:
+                        doi_date = date(int(p[2]), int(p[1]), int(p[0])) if len(p[0]) <= 2 else date(int(p[0]), int(p[1]), int(p[2]))
+
+                if doi_date:
+                    today = date.today()
+                    if doi_date > today:
+                        results.append({
+                            "rule_id": "VAL_ISSUE_DATE",
+                            "rule_name": "Date of Issue Validity Check",
+                            "category": "CHRONOLOGY",
+                            "status": "FAIL",
+                            "message": f"Impossible future date of issue detected: {doi_date.strftime('%d %b %Y')}.",
+                            "details": "Document issuance date cannot occur after the current calendar date.",
+                            "risk_points": 35
+                        })
+                    else:
+                        results.append({
+                            "rule_id": "VAL_ISSUE_DATE",
+                            "rule_name": "Date of Issue Validity Check",
+                            "category": "CHRONOLOGY",
+                            "status": "PASS",
+                            "message": f"Date of issue ({doi_date.strftime('%d %b %Y')}) is valid.",
+                            "details": "Document issuance date precedes current calendar date.",
+                            "risk_points": 0
+                        })
+            except Exception:
+                pass
 
         # -----------------------------------------------------------------
         # 10. DEMONSTRATION WATCHLIST CHECK

@@ -6,12 +6,15 @@ import {
   CheckCircle2,
   AlertCircle,
   FileCheck,
-  Info
+  Info,
+  Camera,
+  UserCheck,
+  X
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 
 interface DocumentUploaderProps {
-  onFileSelected: (file: File, docType: string) => void;
+  onFileSelected: (file: File, docType: string, presentedFile?: File) => void;
   isProcessing?: boolean;
 }
 
@@ -22,8 +25,10 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [selectedType, setSelectedType] = useState<string>('PASSPORT');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [presentedFile, setPresentedFile] = useState<File | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const presentedInputRef = useRef<HTMLInputElement>(null);
 
   const validateAndDispatch = (file: File) => {
     setErrorMsg(null);
@@ -40,7 +45,7 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
       return;
     }
 
-    onFileSelected(file, selectedType);
+    onFileSelected(file, selectedType, presentedFile || undefined);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -99,13 +104,14 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
 
       {/* Document Type Selector Segmented Controls */}
       <div className="space-y-2">
-        <div className="flex flex-wrap items-center justify-center gap-2 p-1.5 bg-white rounded-xl border border-slate-200 shadow-2xs max-w-xl mx-auto">
+        <div className="flex flex-wrap items-center justify-center gap-2 p-1.5 bg-white rounded-xl border border-slate-200 shadow-2xs max-w-2xl mx-auto">
           {[
             { id: 'PASSPORT', label: 'Passport (ICAO TD3)' },
             { id: 'PAN', label: 'PAN Card' },
             { id: 'DRIVING_LICENSE', label: 'Driving Licence' },
             { id: 'VOTER_ID', label: 'Voter ID (EPIC)' },
-            { id: 'VISA', label: 'Visa Endorsement' }
+            { id: 'VISA', label: 'Visa Endorsement' },
+            { id: 'PERMIT', label: 'Border / Movement Permit' }
           ].map((t) => (
             <button
               key={t.id}
@@ -204,6 +210,58 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
             </span>
           </div>
 
+        </div>
+      </div>
+
+      {/* Optional Live Presented Subject Photo Box */}
+      <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0 border border-purple-100">
+            <UserCheck className="w-5 h-5 stroke-[2.2]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-bold text-slate-900">Presented Subject Photo / Live Scan</h4>
+              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 uppercase">Optional</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {presentedFile ? `Selected: ${presentedFile.name} (${(presentedFile.size / 1024).toFixed(0)} KB)` : 'Attach live face scan to perform 1:1 facial biometric matching against document portrait.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <input
+            ref={presentedInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                setPresentedFile(e.target.files[0]);
+              }
+            }}
+            className="hidden"
+          />
+          {presentedFile ? (
+            <button
+              type="button"
+              onClick={() => setPresentedFile(null)}
+              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition flex items-center gap-1 border border-rose-200"
+            >
+              <X className="w-3.5 h-3.5" />
+              Remove Photo
+            </button>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              leftIcon={<Camera className="w-3.5 h-3.5 text-purple-600" />}
+              onClick={() => presentedInputRef.current?.click()}
+            >
+              Attach Subject Photo
+            </Button>
+          )}
         </div>
       </div>
 

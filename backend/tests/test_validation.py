@@ -28,8 +28,8 @@ def test_expired_document_validation():
     results = validation_service.validate_document(fields, mrz_data, "PASSPORT")
     
     expiry_rule = next(r for r in results if r["rule_id"] == "VAL_EXPIRY_DATE")
-    assert expiry_rule["status"] == "FAIL"
-    assert expiry_rule["risk_points"] > 0
+    assert expiry_rule["status"] == "WARNING"
+    assert expiry_rule["risk_points"] == 15
 
 def test_cross_document_visa_mismatch():
     fields = {

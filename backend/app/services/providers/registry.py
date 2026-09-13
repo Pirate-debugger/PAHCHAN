@@ -8,6 +8,8 @@ from app.services.providers.voter_provider import voter_provider
 from app.services.providers.driving_license_provider import driving_license_provider
 from app.services.providers.rc_provider import rc_provider
 from app.services.providers.digital_signature_provider import digital_signature_provider
+from app.services.providers.visa_provider import visa_provider
+from app.services.providers.permit_provider import permit_provider
 
 class ProviderRegistry:
     """Central registry and routing manager for trusted identity & document verification providers."""
@@ -21,7 +23,9 @@ class ProviderRegistry:
             voter_provider.provider_id: voter_provider,
             driving_license_provider.provider_id: driving_license_provider,
             rc_provider.provider_id: rc_provider,
-            digital_signature_provider.provider_id: digital_signature_provider
+            digital_signature_provider.provider_id: digital_signature_provider,
+            visa_provider.provider_id: visa_provider,
+            permit_provider.provider_id: permit_provider
         }
 
     def get_provider(self, provider_id: str) -> Optional[VerificationProvider]:
@@ -43,6 +47,10 @@ class ProviderRegistry:
             matched.extend([pan_provider, api_setu_provider, digilocker_provider])
         elif "PASSPORT" in normalized_doc:
             matched.extend([passport_provider])
+        elif "VISA" in normalized_doc:
+            matched.extend([visa_provider])
+        elif "PERMIT" in normalized_doc:
+            matched.extend([permit_provider])
         elif "VOTER" in normalized_doc or "EPIC" in normalized_doc:
             matched.extend([voter_provider, digilocker_provider])
         elif "DRIVING" in normalized_doc or "DL" in normalized_doc:

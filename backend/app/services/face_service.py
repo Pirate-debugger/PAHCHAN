@@ -97,12 +97,12 @@ class FaceService:
             return {
                 "portrait_url": portrait_url,
                 "presented_url": None,
-                "outcome": "UNABLE_TO_ASSESS",
+                "outcome": "NOT_PROVIDED",
                 "similarity_score": 0.0,
                 "quality_score": 0.0,
                 "quality_assessment": "No presented person photograph provided for comparison.",
-                "explanation": "Face comparison could not be performed because no presented/live photograph was supplied.",
-                "recommendation": "Optional face verification skipped. Proceed with document-only inspection or capture person photo.",
+                "explanation": "Face comparison skipped because no live/presented photograph was supplied. Standard document-only screening applied.",
+                "recommendation": "Optional face verification skipped. Proceed with document-only inspection or capture live photograph.",
                 "risk_contribution": 0
             }
 
@@ -120,21 +120,21 @@ class FaceService:
                     "similarity_score": 0.32,
                     "quality_score": 85.0,
                     "quality_assessment": "Presented image quality verified.",
-                    "explanation": "Facial comparison indicates significant biometric divergence between document portrait and presented subject. Potential identity impersonation.",
-                    "recommendation": "Refer for secondary interview and physical biometric enrollment.",
-                    "risk_contribution": 40
+                    "explanation": "Facial comparison indicates significant visual divergence between document portrait and presented subject. Note: Face comparison is an advisory screening signal and requires human review; it does not constitute conclusive proof of fraud.",
+                    "recommendation": "Refer for secondary officer interview and manual identity confirmation.",
+                    "risk_contribution": 60
                 }
-            elif force_outcome == "POOR_QUALITY":
+            elif force_outcome in ["POOR_QUALITY", "LOW_QUALITY"]:
                 return {
                     "portrait_url": portrait_url,
                     "presented_url": presented_url,
-                    "outcome": "UNABLE_TO_ASSESS",
+                    "outcome": "LOW_QUALITY",
                     "similarity_score": 0.0,
                     "quality_score": 18.2,
                     "quality_assessment": "Low image sharpness (Laplacian variance 18.2 < 35.0)",
-                    "explanation": "Face comparison could not be reliably assessed due to insufficient image sharpness or lighting.",
-                    "recommendation": "Capture a clearer image with balanced lighting and repeat comparison.",
-                    "risk_contribution": 5
+                    "explanation": "Face comparison could not be reliably assessed due to insufficient image sharpness or lighting. Quality rejection does not contribute fraud risk.",
+                    "recommendation": "Request clearer document or capture a well-lit photograph and repeat comparison.",
+                    "risk_contribution": 0
                 }
             elif force_outcome == "MATCH":
                 return {
@@ -155,22 +155,36 @@ class FaceService:
             return {
                 "portrait_url": portrait_url,
                 "presented_url": presented_url,
-                "outcome": "UNABLE_TO_ASSESS",
+                "outcome": "LOW_QUALITY",
                 "similarity_score": 0.0,
                 "quality_score": q_score,
                 "quality_assessment": q_desc,
-                "explanation": "Face comparison could not be reliably assessed.",
-                "recommendation": "Capture a clearer image and repeat comparison.",
-                "risk_contribution": 5
+                "explanation": "Presented image quality is insufficient for automated facial comparison. Quality rejection does not penalize traveler fraud risk.",
+                "recommendation": "Request clearer document or recapture photograph under balanced lighting.",
+                "risk_contribution": 0
             }
 
-        # 2. Extract presented face crop
+        # 2. Extract presented face crop & check multiple faces
         p_crop = presented_img
+        num_faces_detected = 0
         if self.face_cascade is not None and not self.face_cascade.empty():
             gray_p = cv2.cvtColor(presented_img, cv2.COLOR_BGR2GRAY)
             p_faces = self.face_cascade.detectMultiScale(gray_p, scaleFactor=1.1, minNeighbors=4, minSize=(60, 60))
-            if len(p_faces) > 0:
-                px, py, pw, ph = sorted(p_faces, key=lambda f: f[2] * f[3], reverse=True)[0]
+            num_faces_detected = len(p_faces)
+            if num_faces_detected > 1:
+                return {
+                    "portrait_url": portrait_url,
+                    "presented_url": presented_url,
+                    "outcome": "MULTIPLE_FACES",
+                    "similarity_score": 0.0,
+                    "quality_score": q_score,
+                    "quality_assessment": f"Multiple facial profiles ({num_faces_detected}) detected in presented photograph.",
+                    "explanation": "Photograph contains more than one subject. Automated comparison requires single-subject presentation.",
+                    "recommendation": "Recapture photo ensuring only the traveler is visible in the booth frame.",
+                    "risk_contribution": 0
+                }
+            elif num_faces_detected == 1:
+                px, py, pw, ph = p_faces[0]
                 p_crop = presented_img[py:py+ph, px:px+pw]
 
         # 3. Compute Normalized Feature Similarity
@@ -178,13 +192,13 @@ class FaceService:
             return {
                 "portrait_url": portrait_url,
                 "presented_url": presented_url,
-                "outcome": "UNABLE_TO_ASSESS",
+                "outcome": "NO_FACE",
                 "similarity_score": 0.0,
                 "quality_score": q_score,
                 "quality_assessment": "Face could not be cropped from document or presented image.",
-                "explanation": "Biometric face comparison unable to extract valid facial region.",
-                "recommendation": "Inspect physical document portrait manually.",
-                "risk_contribution": 10
+                "explanation": "Biometric face comparison unable to isolate a valid facial region.",
+                "recommendation": "Inspect physical document portrait manually or request clearer document.",
+                "risk_contribution": 0
             }
 
         p1 = cv2.resize(portrait_crop, (128, 128))

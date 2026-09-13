@@ -43,6 +43,23 @@ export const api = {
     return res.json();
   },
 
+  async extractOcr(id: string): Promise<ScreeningSessionDetail> {
+    const res = await fetch(`${BASE_URL}/screenings/${id}/extract-ocr`, {
+      method: 'POST'
+    });
+    if (!res.ok) {
+      let errDetail = 'Failed to extract optical fields';
+      try {
+        const errJson = await res.json();
+        if (errJson.detail) {
+          errDetail = typeof errJson.detail === 'string' ? errJson.detail : (errJson.detail.message || JSON.stringify(errJson.detail));
+        }
+      } catch {}
+      throw new Error(errDetail);
+    }
+    return res.json();
+  },
+
   async analyzeScreening(
     id: string,
     options?: { force_flags?: string; force_face?: string }
@@ -58,7 +75,9 @@ export const api = {
       let errDetail = 'Failed to execute screening analysis';
       try {
         const errJson = await res.json();
-        if (errJson.detail) errDetail = errJson.detail;
+        if (errJson.detail) {
+          errDetail = typeof errJson.detail === 'string' ? errJson.detail : (errJson.detail.message || JSON.stringify(errJson.detail));
+        }
       } catch {}
       throw new Error(errDetail);
     }
@@ -73,14 +92,16 @@ export const api = {
     if (options?.force_flags) params.append('force_scenario_flags', options.force_flags);
     if (options?.force_face) params.append('force_face_outcome', options.force_face);
 
-    const res = await fetch(`${BASE_URL}/screenings/${id}/retry-analysis?${params.toString()}`, {
+    const res = await fetch(`${BASE_URL}/screenings/${id}/retry?${params.toString()}`, {
       method: 'POST'
     });
     if (!res.ok) {
       let errDetail = 'Failed to retry screening analysis';
       try {
         const errJson = await res.json();
-        if (errJson.detail) errDetail = errJson.detail;
+        if (errJson.detail) {
+          errDetail = typeof errJson.detail === 'string' ? errJson.detail : (errJson.detail.message || JSON.stringify(errJson.detail));
+        }
       } catch {}
       throw new Error(errDetail);
     }

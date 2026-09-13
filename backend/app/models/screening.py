@@ -26,6 +26,8 @@ class ScreeningSession(Base):
     validations = relationship("ValidationResult", back_populates="session", cascade="all, delete-orphan")
     forensic_findings = relationship("ForensicFinding", back_populates="session", cascade="all, delete-orphan")
     face_verification = relationship("FaceVerification", back_populates="session", uselist=False, cascade="all, delete-orphan")
+    external_verifications = relationship("ExternalVerificationResult", back_populates="session", cascade="all, delete-orphan")
+    ocr_raw_results = relationship("OCRRawResult", back_populates="session", cascade="all, delete-orphan")
     risk_assessment = relationship("RiskAssessment", back_populates="session", uselist=False, cascade="all, delete-orphan")
     decisions = relationship("ScreeningDecision", back_populates="session", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLogEntry", back_populates="session", cascade="all, delete-orphan")
@@ -103,6 +105,9 @@ class ForensicFinding(Base):
 
     technical_details = Column(Text, nullable=True)  # JSON formatted technical forensic metrics
     risk_contribution = Column(Integer, default=0)
+    confidence = Column(Float, default=0.90)
+    recommended_action = Column(String(128), default="SECONDARY_REVIEW")
+    requires_manual_review = Column(Boolean, default=True)
 
     session = relationship("ScreeningSession", back_populates="forensic_findings")
 
@@ -161,3 +166,38 @@ class AuditLogEntry(Base):
     ip_address = Column(String(64), default="127.0.0.1")
 
     session = relationship("ScreeningSession", back_populates="audit_logs")
+
+class ExternalVerificationResult(Base):
+    __tablename__ = "external_verification_results"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String(32), ForeignKey("screening_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String(128), nullable=False)
+    document_type = Column(String(32), nullable=False)
+    status = Column(String(32), default="NOT_VERIFIED")  # VERIFIED, MISMATCH, NOT_FOUND, NOT_VERIFIED, SERVICE_UNAVAILABLE, UNAUTHORIZED, INCONCLUSIVE, NOT_APPLICABLE, MOCK_RESULT
+    is_matched = Column(Boolean, default=False)
+    is_mock = Column(Boolean, default=True)
+    fields_checked = Column(Text, nullable=True)  # JSON array
+    mismatches = Column(Text, nullable=True)       # JSON array
+    evidence_id = Column(String(64), nullable=True)
+    checked_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    error_code = Column(String(64), nullable=True)
+    message = Column(Text, nullable=False)
+    raw_response = Column(Text, nullable=True)     # JSON string
+
+    session = relationship("ScreeningSession", back_populates="external_verifications")
+
+class OCRRawResult(Base):
+    __tablename__ = "ocr_raw_results"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String(32), ForeignKey("screening_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    engine_used = Column(String(64), default="WinOCR")
+    raw_text = Column(Text, nullable=True)
+    confidence_score = Column(Float, default=1.0)
+    processing_time_ms = Column(Float, default=0.0)
+    language_detected = Column(String(16), default="en")
+    rotation_angle = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    session = relationship("ScreeningSession", back_populates="ocr_raw_results")

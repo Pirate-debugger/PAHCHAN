@@ -1,5 +1,5 @@
 export type RiskLevel = 'LOW' | 'REVIEW' | 'HIGH' | 'CRITICAL' | 'PENDING';
-export type SessionStatus = 'PENDING' | 'IN_REVIEW' | 'COMPLETED' | 'ESCALATED' | 'ANALYSIS_FAILED';
+export type SessionStatus = 'PENDING' | 'OCR_COMPLETED' | 'IN_REVIEW' | 'COMPLETED' | 'ESCALATED' | 'ANALYSIS_FAILED';
 export type OfficerDecisionType = 'STANDARD_REVIEW' | 'SECONDARY_REVIEW' | 'ESCALATE' | 'INCONCLUSIVE';
 
 export interface DocumentItem {
@@ -42,7 +42,7 @@ export interface ValidationResult {
 
 export interface ForensicFinding {
   id: string;
-  category: 'PHOTO_ALTERATION' | 'TEXT_MANIPULATION' | 'STAMP_FORGERY' | 'METADATA_ANOMALY' | 'IDENTITY_CONSISTENCY' | 'FORMAT_TAMPERING' | 'DOCUMENT_TYPE_MISMATCH';
+  category: 'PHOTO_ALTERATION' | 'TEXT_MANIPULATION' | 'STAMP_FORGERY' | 'METADATA_ANOMALY' | 'IDENTITY_CONSISTENCY' | 'FORMAT_TAMPERING' | 'DOCUMENT_TYPE_MISMATCH' | 'IMAGE_QUALITY_ANOMALY';
   severity: 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   title: string;
   explanation: string;
@@ -54,6 +54,35 @@ export interface ForensicFinding {
   bbox_xmax?: number;
   technical_details?: string;
   risk_contribution: number;
+  confidence?: number;
+  recommended_action?: string;
+  requires_manual_review?: boolean;
+}
+
+export interface ExternalVerificationResult {
+  id: string;
+  provider: string;
+  document_type: string;
+  status: string;
+  is_matched: boolean;
+  is_mock: boolean;
+  fields_checked?: string[];
+  mismatches?: string[];
+  evidence_id?: string;
+  checked_at: string;
+  error_code?: string;
+  message: string;
+}
+
+export interface OCRRawResult {
+  id: string;
+  engine_used: string;
+  raw_text?: string;
+  confidence_score: number;
+  processing_time_ms: number;
+  language_detected: string;
+  rotation_angle: number;
+  created_at: string;
 }
 
 export interface FaceVerification {
@@ -131,6 +160,8 @@ export interface ScreeningSessionDetail {
   extracted_fields: ExtractedField[];
   validations: ValidationResult[];
   forensic_findings: ForensicFinding[];
+  external_verifications?: ExternalVerificationResult[];
+  ocr_raw_results?: OCRRawResult[];
   face_verification?: FaceVerification;
   risk_assessment?: RiskAssessment;
   decisions: ScreeningDecision[];
@@ -245,7 +276,10 @@ export interface RiskPillarBreakdown {
 // 10-Stage Verification Timeline
 export type TimelineStepId =
   | 'received'
+  | 'upload'
   | 'classify'
+  | 'quality'
+  | 'crop'
   | 'ocr'
   | 'qr'
   | 'mrz'

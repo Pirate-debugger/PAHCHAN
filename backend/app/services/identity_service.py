@@ -44,7 +44,7 @@ class IdentityService:
                 "details": "Biometric match confidence 94% with divergent identity metadata. Identity consistency review required.",
                 "historical_case": "PH-0941",
                 "dataset_source": "Demonstration Dataset (Historical Screenings)",
-                "risk_contribution": 45
+                "risk_contribution": 65
             }
 
         # 2. Check demonstration registry

@@ -181,6 +181,9 @@ class ForensicService:
                 "bbox_xmin": portrait_bbox[1],
                 "bbox_ymax": portrait_bbox[2],
                 "bbox_xmax": portrait_bbox[3],
+                "confidence": 0.92,
+                "recommended_action": "SECONDARY_REVIEW",
+                "requires_manual_review": True,
                 "technical_details": json.dumps({
                     "method": "Error Level Analysis + Laplacian Texture Ratio",
                     "portrait_laplacian_variance": round(port_var, 2),
@@ -189,7 +192,7 @@ class ForensicService:
                     "perimeter_gradient_abruptness": round(edge_gradient, 2),
                     "confidence_indicator": "High (forensic anomaly detected)"
                 }),
-                "risk_contribution": 35
+                "risk_contribution": 60
             })
 
         # 3. Check for Text Manipulation (e.g. modified DOB / Expiry digits)
@@ -212,6 +215,9 @@ class ForensicService:
                 "bbox_xmin": dob_bbox[1],
                 "bbox_ymax": dob_bbox[2],
                 "bbox_xmax": dob_bbox[3],
+                "confidence": 0.89,
+                "recommended_action": "SECONDARY_REVIEW",
+                "requires_manual_review": True,
                 "technical_details": json.dumps({
                     "method": "Localized ELA + Font Baseline Irregularity",
                     "region": "Date of Birth (VIZ)",
@@ -242,13 +248,16 @@ class ForensicService:
                 "bbox_xmin": stamp_bbox[1],
                 "bbox_ymax": stamp_bbox[2],
                 "bbox_xmax": stamp_bbox[3],
+                "confidence": 0.85,
+                "recommended_action": "SECONDARY_REVIEW",
+                "requires_manual_review": True,
                 "technical_details": json.dumps({
                     "method": "Ink Hue Histogram & Contour Circularity",
                     "circularity_index": 0.58,  # normal > 0.85
                     "ink_bleed_coherence": "Abnormal (pixel sharp border)",
                     "confidence_indicator": "Moderate suspicion"
                 }),
-                "risk_contribution": 25
+                "risk_contribution": 35
             })
 
         # 5. Metadata Analysis
@@ -266,8 +275,32 @@ class ForensicService:
                 "bbox_xmin": None,
                 "bbox_ymax": None,
                 "bbox_xmax": None,
+                "confidence": 0.95,
+                "recommended_action": "SECONDARY_REVIEW",
+                "requires_manual_review": True,
                 "technical_details": json.dumps(meta_result.get("all_meta", {})),
                 "risk_contribution": 20
+            })
+
+        # 6. Image Quality & Resolution Anomaly Check
+        if w < 480 or h < 320:
+            findings.append({
+                "id": str(uuid.uuid4()),
+                "category": "IMAGE_QUALITY_ANOMALY",
+                "severity": "LOW",
+                "title": "Sub-Standard Capture Resolution Warning",
+                "explanation": f"Document image dimensions ({w}x{h} px) fall below the 300 DPI forensic baseline. Microprint and substrate security fibers may be inconclusive.",
+                "evidence_preview_path": None,
+                "heatmap_overlay_path": None,
+                "bbox_ymin": 0.05,
+                "bbox_xmin": 0.05,
+                "bbox_ymax": 0.95,
+                "bbox_xmax": 0.95,
+                "confidence": 0.98,
+                "recommended_action": "REQUEST_CLEARER_DOCUMENT",
+                "requires_manual_review": False,
+                "technical_details": json.dumps({"width": w, "height": h, "min_recommended_width": 800}),
+                "risk_contribution": 5
             })
 
         return findings

@@ -57,9 +57,9 @@ class RiskService:
         if face_result:
             pts = face_result.get("risk_contribution", 0)
             outcome = face_result.get("outcome", "REVIEW")
-            # Quality issue or unsupplied photo must not be treated as fraud
-            if outcome in ["UNABLE_TO_ASSESS", "LOW_QUALITY", "NO_FACE"]:
-                pts = min(pts, 10)  # low advisory points only
+            # Quality rejection, unsupplied photo, or multiple subjects must NEVER contribute fraud risk points
+            if outcome in ["UNABLE_TO_ASSESS", "LOW_QUALITY", "NO_FACE", "MULTIPLE_FACES", "NOT_PROVIDED"]:
+                pts = 0
 
             title = f"Face Comparison Signal: {outcome.replace('_', ' ')}"
             factor_key = f"FACE_VERIFICATION:{title}"
@@ -91,18 +91,26 @@ class RiskService:
         # Clamp score strictly between 0 and 100
         score = min(100, max(0, total_points))
 
+        # Check if quality failure suggests requesting a clearer document
+        needs_clearer_doc = (
+            any(f.get("recommended_action") == "REQUEST_CLEARER_DOCUMENT" for f in forensics) or
+            (face_result and face_result.get("outcome") in ["LOW_QUALITY", "MULTIPLE_FACES"])
+        )
+
+        has_operational_warning = any(v.get("category") == "EXPIRY" and v.get("status") == "WARNING" for v in validations)
+
         # Categorize into bands based on configured thresholds
-        if score <= settings.RISK_THRESHOLD_LOW:
+        if score <= settings.RISK_THRESHOLD_LOW and not has_operational_warning:
             risk_level = "LOW"
-            recommended_action = "STANDARD_REVIEW"
-            primary_concern = "No significant concerns identified"
-            recommendation = "Continue with standard verification."
-        elif score <= settings.RISK_THRESHOLD_REVIEW:
+            recommended_action = "REQUEST_CLEARER_DOCUMENT" if needs_clearer_doc else "STANDARD_REVIEW"
+            primary_concern = "Image quality degraded; review advised" if needs_clearer_doc else "No significant concerns identified"
+            recommendation = "Request clearer capture or continue with standard verification." if needs_clearer_doc else "Continue with standard verification."
+        elif score <= settings.RISK_THRESHOLD_REVIEW or has_operational_warning:
             risk_level = "REVIEW"
             recommended_action = "SECONDARY_REVIEW"
             count = len(contributing_factors)
-            primary_concern = f"{count} item{'s' if count > 1 else ''} require{'s' if count == 1 else ''} officer attention"
-            recommendation = "Review highlighted concerns before completing screening."
+            primary_concern = "Document validity period expired; operational review advised" if has_operational_warning else f"{count} item{'s' if count > 1 else ''} require{'s' if count == 1 else ''} officer attention"
+            recommendation = "Check for validity extension or renewal; not classified as counterfeit." if has_operational_warning else "Review highlighted concerns before completing screening."
         elif score <= settings.RISK_THRESHOLD_HIGH:
             risk_level = "HIGH"
             recommended_action = "SECONDARY_REVIEW"

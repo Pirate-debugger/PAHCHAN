@@ -10,12 +10,13 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
-import { ForensicFinding, ValidationResult, FaceVerification } from '../../types';
+import { ForensicFinding, ValidationResult, FaceVerification, ExternalVerificationResult } from '../../types';
 
 interface GroupedEvidencePanelProps {
   findings: ForensicFinding[];
   validations: ValidationResult[];
   faceVerification?: FaceVerification;
+  externalVerifications?: ExternalVerificationResult[];
   selectedFindingId?: string | null;
   onSelectFinding?: (id: string) => void;
   filterCategory?: string | null;
@@ -25,6 +26,7 @@ export const GroupedEvidencePanel: React.FC<GroupedEvidencePanelProps> = ({
   findings,
   validations,
   faceVerification,
+  externalVerifications = [],
   selectedFindingId,
   onSelectFinding,
   filterCategory
@@ -159,6 +161,24 @@ export const GroupedEvidencePanel: React.FC<GroupedEvidencePanelProps> = ({
                       {f.explanation}
                     </p>
 
+                    {/* Metadata Chips: Risk Points, Confidence, Action */}
+                    <div className="mt-2 pl-6 flex flex-wrap items-center gap-1.5 font-mono text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                        +{f.risk_contribution} RISK PTS
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        {((f.confidence ?? 0.90) * 100).toFixed(0)}% CONF
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                        {f.recommended_action || 'SECONDARY_REVIEW'}
+                      </span>
+                      {f.requires_manual_review && (
+                        <span className="px-1.5 py-0.5 rounded font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                          OFFICER REVIEW REQUIRED
+                        </span>
+                      )}
+                    </div>
+
                     {/* Expandable Technical Explanation */}
                     {isExpanded && (
                       <div className="mt-2.5 pl-6 pt-2 border-t border-slate-100 space-y-2 text-[11px]">
@@ -269,20 +289,52 @@ export const GroupedEvidencePanel: React.FC<GroupedEvidencePanelProps> = ({
               <span>Issuer Verification &amp; Sovereign Authority</span>
             </div>
 
-            <div className="p-3 rounded-xl bg-emerald-50/40 border border-emerald-200 text-xs space-y-1">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-bold text-slate-900">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Authoritative Format &amp; Check Digit Verified</span>
+            {externalVerifications && externalVerifications.length > 0 ? (
+              externalVerifications.map((ev) => (
+                <div key={ev.id} className="p-3 rounded-xl border text-xs space-y-1.5 bg-slate-50 border-slate-200/90">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-bold text-slate-900">
+                      {ev.is_matched ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      ) : ev.status === 'SERVICE_UNAVAILABLE' || ev.status === 'UNVERIFIABLE' ? (
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      )}
+                      <span>{ev.provider}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {ev.is_mock && (
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300">
+                          SYNTHETIC DEMO
+                        </span>
+                      )}
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                        ev.is_matched ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-800'
+                      }`}>
+                        {ev.status}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-600 pl-6">{ev.message}</p>
                 </div>
-                <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                  AUTHENTICATED
-                </span>
+              ))
+            ) : (
+              <div className="p-3 rounded-xl bg-emerald-50/40 border border-emerald-200 text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Authoritative Format &amp; Check Digit Verified</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                    AUTHENTICATED
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 pl-6">
+                  Document syntactically verified against Ministry of Home Affairs / SSB and ICAO Doc 9303 standards.
+                </p>
               </div>
-              <p className="text-[11px] text-slate-600 pl-6">
-                Document syntactically verified against Ministry of Home Affairs / SSB and ICAO Doc 9303 standards.
-              </p>
-            </div>
+            )}
           </div>
         )}
 

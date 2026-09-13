@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.models.screening import (
     ScreeningSession,
     Document,
+    ExtractedField,
     generate_case_id
 )
 from app.schemas.screening import DemoScenarioSummary, ScreeningSessionDetail
@@ -19,7 +20,7 @@ from app.api.screenings import run_screening_analysis
 router = APIRouter(prefix="/demo", tags=["Demo Lab"])
 
 @router.get("/scenarios", response_model=List[DemoScenarioSummary])
-def list_demo_scenarios(include_extended: bool = False):
+def list_demo_scenarios(include_extended: bool = True):
     """List the pre-configured synthetic SIH demonstration scenarios"""
     scenarios = demo_service.get_all_scenarios(include_extended=include_extended)
     results = []
@@ -101,6 +102,37 @@ def load_demo_scenario(scenario_id: str, db: Session = Depends(get_db)):
         action="DEMO_SCENARIO_LOADED",
         details=f"Synthetic scenario '{scenario['title']}' loaded for evaluation"
     )
+
+    # Pre-seed extracted fields from deterministic scenario definition
+    for k, v in scenario.get("fields", {}).items():
+        ef = ExtractedField(
+            id=str(uuid.uuid4()),
+            session_id=case_id,
+            field_key=k,
+            field_label=k.replace("_", " ").title(),
+            field_value=str(v),
+            original_value=str(v),
+            confidence=0.98,
+            is_edited=False,
+            source_zone="VIZ"
+        )
+        db.add(ef)
+
+    if "visa_fields" in scenario:
+        for vk, vv in scenario["visa_fields"].items():
+            ef = ExtractedField(
+                id=str(uuid.uuid4()),
+                session_id=case_id,
+                field_key=vk,
+                field_label=vk.replace("_", " ").title(),
+                field_value=str(vv),
+                original_value=str(vv),
+                confidence=0.98,
+                is_edited=False,
+                source_zone="VISA_ZONE"
+            )
+            db.add(ef)
+    db.commit()
 
     # Run full automated analysis pipeline
     flags_json = json.dumps(scenario.get("flags", {}))

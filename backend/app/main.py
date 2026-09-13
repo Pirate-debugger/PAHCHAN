@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.core.database import engine, Base
+from app.core.database import engine, Base, ensure_schema_compatibility
 import app.models  # Ensure all models are registered
 from app.api.screenings import router as screenings_router
 from app.api.demo import router as demo_router
@@ -16,6 +16,7 @@ from app.api.providers import router as providers_router
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+ensure_schema_compatibility()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

@@ -54,6 +54,35 @@ class ForensicFindingResponse(BaseModel):
     bbox_xmax: Optional[float] = None
     technical_details: Optional[str] = None
     risk_contribution: int = 0
+    confidence: float = 0.90
+    recommended_action: str = "SECONDARY_REVIEW"
+    requires_manual_review: bool = True
+    model_config = ConfigDict(from_attributes=True)
+
+class ExternalVerificationResponse(BaseModel):
+    id: str
+    provider: str
+    document_type: str
+    status: str
+    is_matched: bool
+    is_mock: bool = True
+    fields_checked: Optional[Any] = None
+    mismatches: Optional[Any] = None
+    evidence_id: Optional[str] = None
+    checked_at: datetime
+    error_code: Optional[str] = None
+    message: str
+    model_config = ConfigDict(from_attributes=True)
+
+class OCRRawResultResponse(BaseModel):
+    id: str
+    engine_used: str
+    raw_text: Optional[str] = None
+    confidence_score: float = 1.0
+    processing_time_ms: float = 0.0
+    language_detected: str = "en"
+    rotation_angle: float = 0.0
+    created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
 class FaceVerificationResponse(BaseModel):
@@ -149,6 +178,8 @@ class ScreeningSessionDetail(BaseModel):
     extracted_fields: List[ExtractedFieldResponse] = []
     validations: List[ValidationResultResponse] = []
     forensic_findings: List[ForensicFindingResponse] = []
+    external_verifications: List[ExternalVerificationResponse] = []
+    ocr_raw_results: List[OCRRawResultResponse] = []
     face_verification: Optional[FaceVerificationResponse] = None
     risk_assessment: Optional[RiskAssessmentResponse] = None
     decisions: List[ScreeningDecisionResponse] = []

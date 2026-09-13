@@ -1,3 +1,4 @@
+from typing import Optional
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -7,9 +8,9 @@ class AuditService:
     @staticmethod
     def log(
         db: Session,
-        session_id: str,
-        action: str,
-        details: str = None,
+        session_id: Optional[str] = None,
+        action: str = "AUDIT",
+        details: Optional[str] = None,
         actor: str = "SSB-OFFICER-4821",
         ip_address: str = "127.0.0.1"
     ) -> AuditLogEntry:

@@ -9,7 +9,11 @@ import {
   ArrowLeftRight,
   Printer,
   FileCheck,
-  Info
+  Info,
+  Play,
+  UploadCloud,
+  Eye,
+  RefreshCw
 } from 'lucide-react';
 import {
   ScreeningSessionDetail,
@@ -43,10 +47,11 @@ interface DocumentVerificationWorkspaceProps {
 
 // Initial 10-stage pipeline template
 const INITIAL_TIMELINE_STEPS: TimelineStep[] = [
-  { id: 'received', label: 'Document Received', sublabel: 'Optical boundary check & DPI resolution validation', state: 'PENDING' },
-  { id: 'classify', label: 'Document Classification', sublabel: 'Identifying document class, issuer layout & country standards', state: 'PENDING' },
-  { id: 'ocr', label: 'OCR Extraction', sublabel: 'Deep text extraction across Visual Inspection Zone (VIZ)', state: 'PENDING' },
-  { id: 'qr', label: 'QR / Barcode Analysis', sublabel: 'Decoding high-density 2D barcodes and PDF417 symbols', state: 'PENDING' },
+  { id: 'upload', label: 'Document Security Validation', sublabel: 'Verifying magic byte signatures and payload sanitization', state: 'PENDING' },
+  { id: 'classify', label: 'Document Classification', sublabel: 'Determining visual layout geometry and document category', state: 'PENDING' },
+  { id: 'quality', label: 'Optical Quality & Contrast', sublabel: 'Evaluating Laplacian blur variance and glare interference', state: 'PENDING' },
+  { id: 'crop', label: 'Perspective Normalization', sublabel: 'Four-point homography and quad-corner rectification', state: 'PENDING' },
+  { id: 'ocr', label: 'Optical Extraction Engine', sublabel: 'Running high-fidelity OCR across Visual Inspection Zones (VIZ)', state: 'PENDING' },
   { id: 'mrz', label: 'MRZ Analysis', sublabel: 'Parsing TD1/TD2/TD3 Machine Readable Zones and check digits', state: 'PENDING' },
   { id: 'structure', label: 'Document Structure Analysis', sublabel: 'Verifying guilloche security background and microprint alignment', state: 'PENDING' },
   { id: 'tamper', label: 'Tamper Detection', sublabel: 'Error Level Analysis (ELA) and perimeter splicing inspection', state: 'PENDING' },
@@ -61,8 +66,8 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
   onNotify,
   onLoadDemoScenario: _onLoadDemoScenario
 }) => {
-  // Phase state: 'UPLOAD' | 'SCANNING' | 'RESULT'
-  const [phase, setPhase] = useState<'UPLOAD' | 'SCANNING' | 'RESULT'>(
+  // Phase state: 'UPLOAD' | 'OCR_REVIEW' | 'SCANNING' | 'RESULT'
+  const [phase, setPhase] = useState<'UPLOAD' | 'OCR_REVIEW' | 'SCANNING' | 'RESULT'>(
     initialSession ? 'RESULT' : 'UPLOAD'
   );
 
@@ -317,7 +322,7 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
   };
 
   // Upload handler from dropzone
-  const handleFileSelected = async (file: File, docType: string) => {
+  const handleFileSelected = async (file: File, docType: string, presentedFile?: File) => {
     try {
       const localUrl = URL.createObjectURL(file);
       setPreviewUrl(localUrl);
@@ -326,13 +331,27 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
       const formData = new FormData();
       formData.append('document_file', file);
       formData.append('document_type', docType);
+      if (presentedFile) {
+        formData.append('presented_file', presentedFile);
+      }
 
+      onNotify?.('info', 'Optical Scan Initiated', 'Uploading document and extracting optical text fields...');
       const summary = await api.createScreening(formData);
-      await runLiveVerificationPipeline(summary.id, localUrl, docType);
-    } catch (err) {
+      const detailed = await api.getScreening(summary.id);
+      setSession(detailed);
+      setPhase('OCR_REVIEW');
+      onNotify?.('success', 'Optical Extraction Complete', `${detailed.extracted_fields.length} identity fields ready for review before analysis.`);
+    } catch (err: any) {
       console.error(err);
-      onNotify?.('error', 'Upload Failed', 'Could not upload document for verification.');
+      onNotify?.('error', 'Upload Failed', err?.message || 'Could not upload document for verification.');
     }
+  };
+
+  // Proceed from OCR review to full automated forensic pipeline
+  const handleProceedToAnalysis = async () => {
+    if (!session) return;
+    const docUrl = previewUrl || session.documents[0]?.url || '';
+    await runLiveVerificationPipeline(session.id, docUrl, session.document_type);
   };
 
   // Demo scenario trigger for evaluation presentation
@@ -437,13 +456,13 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
 
   // Compute confidence & risk breakdown
   const risk = session?.risk_assessment;
-  const totalRiskScore = risk ? risk.total_score : 18;
-  const riskLevel = risk ? risk.risk_level : 'LOW';
-  const confidenceScore = Math.max(14.5, Math.min(99.4, 100 - totalRiskScore * 0.92)).toFixed(1);
+  const isAnalysisFailed = session?.status === 'ANALYSIS_FAILED';
+  const totalRiskScore = risk ? risk.total_score : 0;
+  const riskLevel = risk ? risk.risk_level : (isAnalysisFailed ? 'PENDING' : 'LOW');
+  const confidenceScore = risk ? Math.max(14.5, Math.min(99.4, 100 - totalRiskScore * 0.92)).toFixed(1) : '—';
 
   // Result Outcome Categorization
-  const isAnalysisFailed = session?.status === 'ANALYSIS_FAILED';
-  const isVerified = !isAnalysisFailed && riskLevel === 'LOW';
+  const isVerified = !isAnalysisFailed && riskLevel === 'LOW' && Boolean(risk);
   const isSuspicious = !isAnalysisFailed && riskLevel === 'REVIEW';
   const isCounterfeit = !isAnalysisFailed && (riskLevel === 'HIGH' || riskLevel === 'CRITICAL');
   const isUnverifiable = !isAnalysisFailed && timelineSteps[7]?.state === 'UNAVAILABLE';
@@ -483,6 +502,100 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
       {phase === 'UPLOAD' && (
         <div className="py-6 animate-in fade-in duration-300">
           <DocumentUploader onFileSelected={handleFileSelected} />
+        </div>
+      )}
+
+      {/* PHASE 1B: HUMAN-IN-THE-LOOP OCR REVIEW WORKSTATION */}
+      {phase === 'OCR_REVIEW' && session && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          
+          {/* Action Header Card */}
+          <div className="bg-white rounded-2xl border border-blue-200/90 p-5 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-base font-black text-slate-900">{session.id}</span>
+                <span className="text-slate-300">&bull;</span>
+                <span className="text-xs font-bold text-slate-600">{session.document_type}</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                  STEP 1 OF 2: OCR INSPECTION & CORRECTION
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1 max-w-2xl">
+                Optical extraction completed ({session.extracted_fields.length} data fields identified). You may inspect and correct any misread characters below before executing the automated forensic tampering analysis and authoritative registry verification.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const refreshed = await api.extractOcr(session.id);
+                    setSession(refreshed);
+                    onNotify?.('info', 'OCR Re-scanned', 'Optical fields re-extracted from image.');
+                  } catch (err: any) {
+                    onNotify?.('error', 'Re-scan Failed', err?.message);
+                  }
+                }}
+                leftIcon={<RotateCcw className="w-3.5 h-3.5 text-slate-600" />}
+              >
+                Re-scan OCR
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleResetWorkspace}
+                leftIcon={<UploadCloud className="w-3.5 h-3.5 text-slate-500" />}
+              >
+                Replace Document
+              </Button>
+
+              <Button
+                variant="sovereign"
+                size="md"
+                onClick={handleProceedToAnalysis}
+                leftIcon={<Play className="w-4 h-4 stroke-[2.4]" />}
+              >
+                Proceed to Full Analysis &rarr;
+              </Button>
+            </div>
+          </div>
+
+          {/* 2-Column OCR Review Studio */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            {/* Left: Extracted Fields Panel with Click-to-Edit & Confidence Badges (5 cols) */}
+            <div className="lg:col-span-5 h-[680px]">
+              <ExtractedInfoPanel
+                fields={session.extracted_fields}
+                selectedFieldKey={selectedFieldKey}
+                onSelectField={(key) => {
+                  setSelectedFieldKey(key);
+                  setSelectedFindingId(null);
+                }}
+                onHoverField={(key) => setHoveredFieldKey(key)}
+                onEditField={handleEditField}
+              />
+            </div>
+
+            {/* Right: Document Viewer with Bounding Box Highlights (7 cols) */}
+            <div className="lg:col-span-7 h-[680px]">
+              <DocumentViewer
+                documentUrl={previewUrl || session.documents[0]?.url || ''}
+                findings={[]}
+                fields={session.extracted_fields}
+                selectedFieldKey={selectedFieldKey}
+                hoveredFieldKey={hoveredFieldKey}
+                onSelectField={(key) => {
+                  setSelectedFieldKey(key);
+                  setSelectedFindingId(null);
+                }}
+                documentType={session.document_type}
+              />
+            </div>
+          </div>
+
         </div>
       )}
 
@@ -802,17 +915,56 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
               {/* Right Column: Grouped Evidence Panel & 5-Category Risk Breakdown (3 Cols) */}
               <div className="lg:col-span-3 h-[720px] flex flex-col gap-4 overflow-y-auto pr-1">
                 
-                {/* 5-Category Risk Breakdown Card */}
-                <InteractiveRiskScore
-                  totalScore={totalRiskScore}
-                  riskLevel={riskLevel}
-                  confidenceScore={parseFloat(confidenceScore)}
-                  breakdown={riskBreakdown}
-                  selectedCategory={filterRiskCategory}
-                  onSelectCategory={setFilterRiskCategory}
-                  primaryConcern={risk?.primary_concern}
-                  recommendation={risk?.recommendation}
-                />
+                {/* 5-Category Risk Breakdown Card or Analysis Failed Station */}
+                {isAnalysisFailed ? (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-slate-200">
+                    <div className="flex items-center gap-2 font-bold text-amber-400 text-sm mb-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Automated Analysis Inconclusive</span>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed mb-3">
+                      Automated risk assessment could not complete due to pipeline interruption, low image resolution, or corrupted visual buffers. Zero fraud penalty was applied.
+                    </p>
+                    <div className="bg-slate-900/60 rounded-lg p-2.5 border border-slate-800 text-[11px] font-mono text-slate-400 mb-3 space-y-1">
+                      <div>Session ID: <span className="text-slate-200">{session.id.slice(0, 8)}...</span></div>
+                      <div>Status: <span className="text-amber-400 font-bold">ANALYSIS_FAILED</span></div>
+                      <div>Protocol: <span className="text-sky-400">Officer Manual Review Required</span></div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={handleProceedToAnalysis}
+                        disabled={isRetrying}
+                        className="w-full py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-all shadow flex items-center justify-center gap-1.5"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
+                        <span>Retry Automated Analysis</span>
+                      </button>
+                      <button
+                        onClick={handleResetWorkspace}
+                        className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs rounded-lg border border-slate-700 transition-all text-center"
+                      >
+                        Upload Clearer Scan
+                      </button>
+                      <button
+                        onClick={() => handleRecordDecision('INCONCLUSIVE', 'Recorded inconclusive automated analysis. Escrowed for physical verification.')}
+                        className="w-full py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-semibold text-xs rounded-lg transition-all text-center"
+                      >
+                        Record Secondary Escrow
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <InteractiveRiskScore
+                    totalScore={totalRiskScore}
+                    riskLevel={riskLevel}
+                    confidenceScore={parseFloat(confidenceScore)}
+                    breakdown={riskBreakdown}
+                    selectedCategory={filterRiskCategory}
+                    onSelectCategory={setFilterRiskCategory}
+                    primaryConcern={risk?.primary_concern}
+                    recommendation={risk?.recommendation}
+                  />
+                )}
 
                 {/* Grouped Evidence Panel */}
                 <div className="flex-1 min-h-[360px]">
@@ -820,6 +972,7 @@ export const DocumentVerificationWorkspace: React.FC<DocumentVerificationWorkspa
                     findings={session.forensic_findings}
                     validations={session.validations}
                     faceVerification={session.face_verification}
+                    externalVerifications={session.external_verifications}
                     selectedFindingId={selectedFindingId}
                     onSelectFinding={(id) => {
                       setSelectedFindingId(id);
