@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./pahchan.db")
+
+    @property
+    def RESOLVED_DATABASE_URL(self) -> str:
+        if self.DATABASE_URL == "sqlite:///./pahchan.db":
+            return f"sqlite:///{str(self.BASE_DIR / 'pahchan.db')}"
+        return self.DATABASE_URL
     
     # Risk Engine Default Thresholds (Configurable)
     RISK_THRESHOLD_LOW: int = 29
@@ -32,6 +38,21 @@ class Settings(BaseSettings):
     # Verification Sources Configuration
     ENABLE_DEMO_WATCHLIST: bool = True
     DEMO_WATCHLIST_NAME: str = "Demonstration Verification Source"
+
+    # CORS Configuration
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ]
+
+    # Upload Constraints & Security
+    MAX_UPLOAD_SIZE_MB: int = 15
+    ALLOWED_EXTENSIONS: list[str] = [".jpg", ".jpeg", ".png", ".webp", ".pdf"]
+
+    # Provider Execution Mode
+    ALLOW_DEMO_PROVIDERS: bool = True
 
     model_config = SettingsConfigDict(case_sensitive=True)
 

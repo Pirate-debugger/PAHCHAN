@@ -5,7 +5,9 @@ import {
   DemoScenario,
   OfficerDecisionType,
   SystemSettings,
-  AuditLogEntry
+  AuditLogEntry,
+  ProviderStatusInfo,
+  TrustedComparisonRecord
 } from '../types';
 
 const BASE_URL = '/api';
@@ -142,5 +144,34 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to update system settings');
     return res.json();
+  },
+
+  async getProviders(): Promise<ProviderStatusInfo[]> {
+    const res = await fetch(`${BASE_URL}/providers`);
+    if (!res.ok) throw new Error('Failed to fetch identity providers status');
+    return res.json();
+  },
+
+  async pingProvider(providerId: string): Promise<any> {
+    const res = await fetch(`${BASE_URL}/providers/${providerId}/ping`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error(`Failed to ping provider ${providerId}`);
+    return res.json();
+  },
+
+  async getTrustedComparisonRecord(
+    docType: string,
+    identifier: string,
+    name?: string
+  ): Promise<TrustedComparisonRecord> {
+    const params = new URLSearchParams();
+    if (name) params.append('name', name);
+    const res = await fetch(
+      `${BASE_URL}/providers/comparison/${encodeURIComponent(docType)}/${encodeURIComponent(identifier)}?${params.toString()}`
+    );
+    if (!res.ok) throw new Error('Failed to fetch comparison record');
+    return res.json();
   }
 };
+

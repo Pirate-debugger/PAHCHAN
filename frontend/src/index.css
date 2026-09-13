@@ -3,9 +3,157 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-slate-50 text-slate-900 font-sans antialiased selection:bg-brand-100 selection:text-brand-900;
+  :root {
+    --brand-primary: #0c1b2e;
+    --brand-accent: #2563eb;
+    --saffron-security: #f59e0b;
+    --emerald-verified: #059669;
+    --crimson-tamper: #dc2626;
   }
+
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900;
+  }
+
+  /* Accessible high-contrast focus rings */
+  :focus-visible {
+    @apply outline-none ring-2 ring-blue-600 ring-offset-2 ring-offset-white;
+  }
+}
+
+/* Sovereign Laser Scanline for automated forensic inspection */
+@keyframes laserSweep {
+  0% {
+    top: 0%;
+    opacity: 0.2;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    top: 98%;
+    opacity: 0.2;
+  }
+}
+
+.forensic-laser-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0) 0%, rgba(59, 130, 246, 0.95) 50%, rgba(37, 99, 235, 0) 100%);
+  box-shadow: 0 0 16px 3px rgba(59, 130, 246, 0.75), 0 0 4px 1px rgba(96, 165, 250, 0.9);
+  pointer-events: none;
+  z-index: 25;
+  animation: laserSweep 2.8s ease-in-out infinite alternate;
+}
+
+.forensic-laser-saffron {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0) 0%, rgba(245, 158, 11, 0.95) 50%, rgba(245, 158, 11, 0) 100%);
+  box-shadow: 0 0 16px 3px rgba(245, 158, 11, 0.75), 0 0 4px 1px rgba(251, 191, 36, 0.9);
+  pointer-events: none;
+  z-index: 25;
+  animation: laserSweep 2.8s ease-in-out infinite alternate;
+}
+
+/* Detected Region Beacon Tag Animation */
+@keyframes tagAppear {
+  0% {
+    transform: scale(0.7) translateY(4px);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.detected-tag-animate {
+  animation: tagAppear 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Suspicious Region Beacon Ripple */
+@keyframes beaconPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+.beacon-animate-danger {
+  animation: beaconPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes amberBeaconPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
+.beacon-animate-warning {
+  animation: amberBeaconPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Field Focus Glow */
+@keyframes fieldGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.8), 0 0 16px rgba(59, 130, 246, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 1), 0 0 24px rgba(59, 130, 246, 0.7);
+  }
+}
+
+.field-focused-glow {
+  animation: fieldGlow 1.8s ease-in-out infinite;
+}
+
+/* Subtle grid pattern for forensic inspection canvas */
+.forensic-grid-pattern {
+  background-size: 24px 24px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+}
+
+/* Upload Dropzone Pulse on Drag */
+@keyframes dropzoneGlow {
+  0%, 100% {
+    border-color: rgba(37, 99, 235, 0.8);
+    background-color: rgba(239, 246, 255, 0.8);
+  }
+  50% {
+    border-color: rgba(59, 130, 246, 1);
+    background-color: rgba(219, 234, 254, 0.9);
+  }
+}
+
+.dropzone-dragging {
+  animation: dropzoneGlow 1.5s ease-in-out infinite;
 }
 
 /* Document canvas and print formatting */
@@ -20,9 +168,13 @@
     background: white !important;
     color: black !important;
   }
+  @page {
+    margin: 1.2cm;
+    size: A4 portrait;
+  }
 }
 
-/* Subtle enterprise scrollbar */
+/* Precision sovereign scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -36,4 +188,18 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Accessibility: Respect Reduced Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+  .forensic-laser-line,
+  .forensic-laser-saffron,
+  .detected-tag-animate,
+  .beacon-animate-danger,
+  .beacon-animate-warning,
+  .field-focused-glow,
+  .dropzone-dragging {
+    animation: none !important;
+    transition: none !important;
+  }
 }

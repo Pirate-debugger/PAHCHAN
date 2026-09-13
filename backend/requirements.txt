@@ -11,3 +11,4 @@ scipy>=1.12.0
 easyocr>=1.7.0
 pytest>=8.0.0
 httpx>=0.27.0
+winocr>=1.0.0; sys_platform == "win32"

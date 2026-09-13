@@ -12,6 +12,7 @@ from app.api.demo import router as demo_router
 from app.api.reports import router as reports_router
 from app.api.audit import router as audit_router
 from app.api.settings import router as settings_router
+from app.api.providers import router as providers_router
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -22,10 +23,11 @@ app = FastAPI(
     description="AI-Based Fake Identity & Document Screening System (SIH2026188) for Ministry of Home Affairs / SSB"
 )
 
-# CORS Middleware
+# CORS Middleware (Compliant with W3C CORS Specification for credentials)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,6 +46,7 @@ app.include_router(demo_router, prefix=settings.API_V1_STR)
 app.include_router(reports_router, prefix=settings.API_V1_STR)
 app.include_router(audit_router, prefix=settings.API_V1_STR)
 app.include_router(settings_router, prefix=settings.API_V1_STR)
+app.include_router(providers_router, prefix=settings.API_V1_STR)
 
 @app.get("/api/health")
 def health_check():

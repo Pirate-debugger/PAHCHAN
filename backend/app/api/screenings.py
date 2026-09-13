@@ -112,6 +112,52 @@ def list_screenings(
 
     return results
 
+def secure_validate_upload(filename: Optional[str], contents: bytes) -> str:
+    """
+    Validate document upload security:
+    - Non-empty payload check
+    - File size limit (MAX_UPLOAD_SIZE_MB)
+    - Extension whitelist (.jpg, .jpeg, .png, .webp, .pdf)
+    - Magic byte header inspection
+    - Sanitized filename
+    """
+    if not contents or len(contents) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    if len(contents) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds maximum allowed size of {settings.MAX_UPLOAD_SIZE_MB}MB."
+        )
+
+    safe_base = os.path.basename(filename or "document.jpg")
+    ext = os.path.splitext(safe_base)[1].lower()
+    if ext not in settings.ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file extension '{ext}'. Permitted formats: {', '.join(settings.ALLOWED_EXTENSIONS)}."
+        )
+
+    # Magic byte verification
+    is_valid_magic = False
+    if contents.startswith(b"\xFF\xD8\xFF"):  # JPEG
+        is_valid_magic = True
+    elif contents.startswith(b"\x89PNG\r\n\x1a\n"):  # PNG
+        is_valid_magic = True
+    elif contents.startswith(b"RIFF") and b"WEBP" in contents[:16]:  # WebP
+        is_valid_magic = True
+    elif contents.startswith(b"%PDF"):  # PDF
+        is_valid_magic = True
+
+    if not is_valid_magic:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file signature or corrupted document. Content does not match expected image/document format."
+        )
+
+    return ext
+
 @router.post("", response_model=ScreeningSessionSummary)
 async def create_screening(
     document_file: UploadFile = File(...),
@@ -120,7 +166,17 @@ async def create_screening(
     notes: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
-    """Start a new screening session by uploading a document"""
+    """Start a new screening session by uploading a document with strict security validation"""
+    contents = await document_file.read()
+    doc_ext = secure_validate_upload(document_file.filename, contents)
+
+    p_contents = None
+    pres_ext = None
+    if presented_file and presented_file.filename:
+        p_contents = await presented_file.read()
+        if p_contents and len(p_contents) > 0:
+            pres_ext = secure_validate_upload(presented_file.filename, p_contents)
+
     case_id = generate_case_id()
     while db.query(ScreeningSession).filter(ScreeningSession.id == case_id).first():
         case_id = generate_case_id()
@@ -135,12 +191,9 @@ async def create_screening(
     db.add(session)
     db.commit()
 
-    # Save primary document
-    doc_ext = os.path.splitext(document_file.filename)[1] or ".jpg"
+    # Save primary document safely
     doc_filename = f"{case_id}_primary{doc_ext}"
     doc_path = settings.UPLOADS_DIR / doc_filename
-
-    contents = await document_file.read()
     with open(doc_path, "wb") as f:
         f.write(contents)
 
@@ -155,12 +208,10 @@ async def create_screening(
     )
     db.add(primary_doc)
 
-    # Save presented photo if provided
-    if presented_file and presented_file.filename:
-        pres_ext = os.path.splitext(presented_file.filename)[1] or ".jpg"
+    # Save presented photo if provided and validated
+    if p_contents and pres_ext:
         pres_filename = f"{case_id}_presented{pres_ext}"
         pres_path = settings.UPLOADS_DIR / pres_filename
-        p_contents = await presented_file.read()
         with open(pres_path, "wb") as f:
             f.write(p_contents)
 
@@ -182,7 +233,7 @@ async def create_screening(
         db=db,
         session_id=case_id,
         action="SCREENING_CREATED",
-        details=f"New screening case created with document {document_file.filename}"
+        details=f"New screening case created with document {os.path.basename(document_file.filename or 'doc')}"
     )
 
     return ScreeningSessionSummary(
@@ -418,11 +469,79 @@ def run_screening_analysis(
     db.commit()
 
     # Step 2: Document Validation Check
+    doc_type_detected = ocr_res.get("doc_type_detected")
+    classification_info = ocr_res.get("classification")
+
     val_results = validation_service.validate_document(
         fields_map=fields_map,
         mrz_data=mrz_data,
-        doc_type=session.document_type
+        doc_type=session.document_type,
+        doc_type_detected=doc_type_detected,
+        classification_info=classification_info
     )
+
+    # Step 2b: Query Authoritative Verification Provider (NSDL, Parivahan, ECI, Passport PKD)
+    from app.services.providers.registry import provider_registry
+    matched_providers = provider_registry.resolve_provider_for_document(session.document_type)
+    if matched_providers and fields_map.get("document_number"):
+        primary_provider = matched_providers[0]
+        try:
+            prov_res = primary_provider.verify_document(
+                doc_type=session.document_type,
+                identifier=fields_map.get("document_number"),
+                extracted_fields=fields_map
+            )
+            if prov_res.status == "VERIFIED" and prov_res.is_matched:
+                val_results.append({
+                    "rule_id": "VAL_PROVIDER_AUTHORITY",
+                    "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
+                    "category": "GATEWAY",
+                    "status": "PASS",
+                    "message": f"Verified against {primary_provider.provider_name} ({'Sandbox / Demo Mode' if prov_res.is_sandbox else 'Official Live Registry'}).",
+                    "details": prov_res.evidence_notes,
+                    "risk_points": 0
+                })
+            elif prov_res.status in ["UNVERIFIABLE", "NOT_CONFIGURED"]:
+                val_results.append({
+                    "rule_id": "VAL_PROVIDER_AUTHORITY",
+                    "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
+                    "category": "GATEWAY",
+                    "status": "WARNING",
+                    "message": f"External verification unavailable: {prov_res.evidence_notes}",
+                    "details": f"Local physical & optical checks completed. Official registry status: {prov_res.status}.",
+                    "risk_points": 5
+                })
+            elif prov_res.status == "MISMATCH" or not prov_res.is_matched:
+                val_results.append({
+                    "rule_id": "VAL_PROVIDER_AUTHORITY",
+                    "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
+                    "category": "GATEWAY",
+                    "status": "FAIL",
+                    "message": f"Official Registry Verification Failed: {prov_res.evidence_notes}",
+                    "details": f"Checked identifier '{prov_res.identifier_checked}' against {primary_provider.provider_name}.",
+                    "risk_points": 35
+                })
+            else:
+                val_results.append({
+                    "rule_id": "VAL_PROVIDER_AUTHORITY",
+                    "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
+                    "category": "GATEWAY",
+                    "status": "WARNING",
+                    "message": f"External verification status: {prov_res.status}",
+                    "details": prov_res.evidence_notes,
+                    "risk_points": 5
+                })
+        except Exception as prov_err:
+            print(f"[Screenings] Provider check error: {prov_err}")
+            val_results.append({
+                "rule_id": "VAL_PROVIDER_AUTHORITY",
+                "rule_name": f"Authoritative Gateway [{primary_provider.provider_name}]",
+                "category": "GATEWAY",
+                "status": "WARNING",
+                "message": f"External verification unavailable ({primary_provider.provider_name} unreachable).",
+                "details": f"Local verification completed successfully. Gateway error: {str(prov_err)}",
+                "risk_points": 5
+            })
 
     for v in val_results:
         val_obj = ValidationResult(
@@ -446,6 +565,49 @@ def run_screening_analysis(
         doc_type=session.document_type,
         force_scenarios=flags
     )
+
+    # Inject Optical Document Type Mismatch as a Critical Forensic Finding
+    type_mismatch_val = next((v for v in val_results if v["rule_id"] == "VAL_DOC_TYPE_CONSISTENCY" and v["status"] == "FAIL"), None)
+    if type_mismatch_val:
+        forensic_findings.append({
+            "id": str(uuid.uuid4()),
+            "category": "DOCUMENT_TYPE_MISMATCH",
+            "severity": "CRITICAL",
+            "title": "Document Classification Conflict Signal",
+            "explanation": type_mismatch_val["message"],
+            "evidence_preview_path": None,
+            "heatmap_overlay_path": None,
+            "bbox_ymin": 0.03,
+            "bbox_xmin": 0.03,
+            "bbox_ymax": 0.97,
+            "bbox_xmax": 0.97,
+            "technical_details": json.dumps({
+                "declared_type": session.document_type,
+                "detected_type": doc_type_detected,
+                "aspect_ratio": classification_info.get("aspect_ratio") if classification_info else None,
+                "reasons": classification_info.get("reasons", []) if classification_info else []
+            }),
+            "risk_contribution": 45
+        })
+
+    # Inject Critical Format / Checksum Failures as Forensic Findings
+    for v in val_results:
+        if v["status"] == "FAIL" and v["rule_id"] in ["VAL_PAN_STRUCTURE", "VAL_DL_STRUCTURE", "VAL_MRZ_CHECKSUM"]:
+            forensic_findings.append({
+                "id": str(uuid.uuid4()),
+                "category": "FORMAT_TAMPERING",
+                "severity": "HIGH",
+                "title": f"Structural Defect: {v['rule_name']}",
+                "explanation": v["message"],
+                "evidence_preview_path": None,
+                "heatmap_overlay_path": None,
+                "bbox_ymin": 0.20,
+                "bbox_xmin": 0.20,
+                "bbox_ymax": 0.50,
+                "bbox_xmax": 0.80,
+                "technical_details": json.dumps({"rule_id": v["rule_id"], "details": v.get("details")}),
+                "risk_contribution": v["risk_points"]
+            })
 
     for f in forensic_findings:
         find_obj = ForensicFinding(

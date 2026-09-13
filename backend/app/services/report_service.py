@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any
 from sqlalchemy.orm import Session
 from app.models.screening import ScreeningSession, ScreeningDecision
+from app.core.security_privacy import mask_document_number
 
 class ReportService:
     @staticmethod
@@ -27,6 +28,7 @@ class ReportService:
                 f.field_key: {
                     "label": f.field_label,
                     "value": f.field_value,
+                    "masked_value": mask_document_number(f.field_value, session.document_type) if f.field_key == "document_number" else f.field_value,
                     "confidence": f.confidence,
                     "is_edited": f.is_edited
                 } for f in session.extracted_fields

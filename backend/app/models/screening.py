@@ -110,7 +110,7 @@ class FaceVerification(Base):
     __tablename__ = "face_verifications"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id = Column(String(32), ForeignKey("screening_sessions.id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(String(32), ForeignKey("screening_sessions.id", ondelete="CASCADE"), nullable=False, unique=True)
     portrait_crop_path = Column(String(512), nullable=True)
     presented_photo_path = Column(String(512), nullable=True)
     outcome = Column(String(32), default="REVIEW")  # MATCH_SIGNAL, REVIEW, MISMATCH_SIGNAL, UNABLE_TO_ASSESS
@@ -127,7 +127,7 @@ class RiskAssessment(Base):
     __tablename__ = "risk_assessments"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id = Column(String(32), ForeignKey("screening_sessions.id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(String(32), ForeignKey("screening_sessions.id", ondelete="CASCADE"), nullable=False, unique=True)
     total_score = Column(Integer, default=0)           # 0 - 100
     risk_level = Column(String(32), default="LOW")     # LOW, REVIEW, HIGH, CRITICAL
     primary_concern = Column(String(256), nullable=True)

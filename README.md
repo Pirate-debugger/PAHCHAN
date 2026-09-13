@@ -90,26 +90,37 @@ npm run dev
 
 ---
 
-## 🧪 Automated Testing
+## 🧪 Automated Testing & Production Audit
 
-### Backend Unit & Integration Tests
+### Complete Test Suite (28 Tests)
 ```bash
 cd backend
 python -m pytest tests
 ```
-*Includes tests for ICAO MRZ checksums, screening endpoints, and validation rules.*
+*Executes unit and integration test suites covering:*
+- **ICAO Doc 9303 MRZ Engine** (`test_mrz_parser.py`): 7-3-1 modulus-10 check digits for TD1 and TD3 travel documents.
+- **National Credential Validation** (`test_validation.py`): PAN structure, DL Sarathi format, Voter ID, Expiry chronology, and Visa cross-matching.
+- **Upload Security & Sandboxing** (`test_security_uploads.py`): 15MB file size enforcement, magic byte signatures, extension whitelisting, and path traversal prevention.
+- **Privacy & PII Masking** (`test_privacy_masking.py`): Statutory masking for PAN (`ABCDE****F`), Aadhaar (`XXXX XXXX 1234`), and Passport (`P829****`).
+- **Government Provider Gateway** (`test_provider_gateway.py`): Registry resolution, stolen travel document blacklist alerts, and unconfigured fallback.
+- **Optical Classifier** (`test_document_classifier.py`): ISO/IEC 7810 ID-1 vs ID-3 geometry and low-confidence uncertain handling.
+- **Screening Endpoints** (`test_screenings_api.py`): Screening lifecycle, stats, officer determinations, and field corrections.
 
 ### Frontend Production Build
 ```bash
 cd frontend
 npm run build
 ```
+*TypeScript compilation (`tsc -b`) and Vite production bundling.*
 
 ---
 
-## 📖 Presentation & Demo Resources
+## 📋 Comprehensive Audit & Verification Reports
 
-- **[Judge Presentation & Live Demo Guide](JUDGES_PRESENTATION_GUIDE.md)**: 5-minute pitch script, live demo sequence, and answers to tough technical questions.
+- **[Full Codebase Audit Report (CODEBASE_AUDIT.md)](CODEBASE_AUDIT.md)**: 21-section technical architecture, security, and defect analysis.
+- **[Engineering Fixes Changelog (QA_FIXES.md)](QA_FIXES.md)**: Detailed root-cause, fix, and regression test matrix.
+- **[Final QA & Readiness Report (FINAL_QA_REPORT.md)](FINAL_QA_REPORT.md)**: Production scorecard and subsystem verification status.
+- **[Judge Presentation & Live Demo Guide](JUDGES_PRESENTATION_GUIDE.md)**: 5-minute pitch script, live demo sequence, and technical FAQ.
 
 ---
 

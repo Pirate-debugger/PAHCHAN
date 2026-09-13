@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { SystemSettings } from '../../types';
 import { api } from '../../services/api';
-import { Settings, Save, Shield, AlertCircle, Database, Check } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { Settings, Save, Shield, AlertCircle, Database, Check, Sliders, Lock } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SystemSettings>({
@@ -45,33 +46,39 @@ export const SettingsPage: React.FC = () => {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">System Configuration &amp; Screening Parameters</h1>
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-subtle">
+        <div className="flex items-center gap-2">
+          <Settings className="w-5 h-5 text-blue-600" />
+          <h1 className="text-xl font-black text-slate-900 tracking-tight">
+            System Configuration &amp; Screening Parameters
+          </h1>
+        </div>
         <p className="text-xs text-slate-500 mt-0.5">
-          Configure prototype screening risk thresholds, verification data sources, and OCR engines
+          Configure prototype screening risk thresholds, verification data sources, and biometric guardrails
         </p>
       </div>
 
-      {/* Threshold Disclaimer Alert */}
-      <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 text-xs text-blue-900 flex items-start gap-3">
-        <AlertCircle className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
-        <p className="leading-relaxed">
-          <strong>Mandatory Notice:</strong> These risk thresholds and evaluation bands are prototype screening rules designed for decision support. They do not constitute official government statutory decision thresholds unless formally approved by the Ministry of Home Affairs / SSB.
-        </p>
+      {/* Statutory Notice Alert */}
+      <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4.5 text-xs text-blue-950 flex items-start gap-3 shadow-subtle">
+        <AlertCircle className="w-5 h-5 text-blue-700 shrink-0 mt-0.5" />
+        <div className="leading-relaxed">
+          <strong className="block font-bold mb-0.5">Mandatory Statutory Notice:</strong>
+          These risk thresholds and scoring bands are decision-support guidelines configured for operational evaluation demonstration. Statutory operational thresholds are governed by the Ministry of Home Affairs and SSB border command regulations.
+        </div>
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
         
         {/* Risk Thresholds Card */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-brand-700" />
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-subtle space-y-4">
+          <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-blue-600" />
             <span>Screening Risk Score Thresholds (0 &mdash; 100 Scale)</span>
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200">
+              <label className="block text-xs font-bold text-slate-800 mb-1">
                 Low Risk Cutoff (Upper Bound)
               </label>
               <div className="flex items-center gap-2">
@@ -83,15 +90,15 @@ export const SettingsPage: React.FC = () => {
                   onChange={(e) =>
                     setSettings({ ...settings, risk_threshold_low: parseInt(e.target.value) || 29 })
                   }
-                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
                 <span className="text-xs text-slate-400 font-mono">pts</span>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Scores 0 &mdash; {settings.risk_threshold_low} classified as LOW</p>
+              <p className="text-[10px] text-slate-500 mt-1.5 font-medium">Scores 0 &mdash; {settings.risk_threshold_low}: Certified LOW</p>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200">
+              <label className="block text-xs font-bold text-slate-800 mb-1">
                 Review Recommended Bound
               </label>
               <div className="flex items-center gap-2">
@@ -103,15 +110,15 @@ export const SettingsPage: React.FC = () => {
                   onChange={(e) =>
                     setSettings({ ...settings, risk_threshold_review: parseInt(e.target.value) || 59 })
                   }
-                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
                 <span className="text-xs text-slate-400 font-mono">pts</span>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Scores {settings.risk_threshold_low + 1} &mdash; {settings.risk_threshold_review} classified as REVIEW</p>
+              <p className="text-[10px] text-slate-500 mt-1.5 font-medium">Scores {settings.risk_threshold_low + 1} &mdash; {settings.risk_threshold_review}: REVIEW</p>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200">
+              <label className="block text-xs font-bold text-slate-800 mb-1">
                 High Risk Cutoff
               </label>
               <div className="flex items-center gap-2">
@@ -123,29 +130,29 @@ export const SettingsPage: React.FC = () => {
                   onChange={(e) =>
                     setSettings({ ...settings, risk_threshold_high: parseInt(e.target.value) || 79 })
                   }
-                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
                 <span className="text-xs text-slate-400 font-mono">pts</span>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Scores {settings.risk_threshold_review + 1} &mdash; {settings.risk_threshold_high} HIGH, 80+ CRITICAL</p>
+              <p className="text-[10px] text-slate-500 mt-1.5 font-medium">Scores 80+: CRITICAL ANOMALY</p>
             </div>
           </div>
         </div>
 
         {/* Verification Source Card */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
-            <Database className="w-4 h-4 text-brand-700" />
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-subtle space-y-4">
+          <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-2">
+            <Database className="w-4 h-4 text-blue-600" />
             <span>Verification Sources &amp; Watchlist Registry</span>
           </h2>
 
-          <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200">
             <div>
-              <span className="text-xs font-bold text-slate-800 block">
+              <span className="text-xs font-bold text-slate-900 block">
                 Demonstration Verification Source (SLTD &amp; Watchlist)
               </span>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Checks incoming documents against the configured demonstration lost/stolen document registry.
+              <p className="text-[11px] text-slate-500 mt-0.5 max-w-md">
+                Cross-references incoming documents against the pre-seeded lost/stolen document registry.
               </p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -157,12 +164,12 @@ export const SettingsPage: React.FC = () => {
                 }
                 className="sr-only peer"
               />
-              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-700"></div>
+              <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-bold text-slate-800 mb-1">
               Active Registry Label
             </label>
             <input
@@ -171,21 +178,23 @@ export const SettingsPage: React.FC = () => {
               onChange={(e) =>
                 setSettings({ ...settings, demo_watchlist_name: e.target.value })
               }
-              className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
             <p className="text-[10px] text-slate-400 mt-1">
-              Explicit label displayed in reports and audit logs to clearly distinguish demonstration data from live databases.
+              Label displayed in legal dossiers and audit logs to clearly distinguish demonstration databases.
             </p>
           </div>
         </div>
 
-        {/* Quality Thresholds Card */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
-            Biometric Quality Guard
+        {/* Biometric Quality Threshold */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-subtle space-y-4">
+          <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-blue-600" />
+            <span>Biometric Quality Guardrails</span>
           </h2>
+
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-bold text-slate-800 mb-1">
               Minimum Face Sharpness (Laplacian Variance Threshold)
             </label>
             <div className="flex items-center gap-3">
@@ -196,10 +205,10 @@ export const SettingsPage: React.FC = () => {
                 onChange={(e) =>
                   setSettings({ ...settings, face_quality_threshold: parseFloat(e.target.value) || 35.0 })
                 }
-                className="w-32 px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                className="w-32 px-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
               <span className="text-xs text-slate-500">
-                Below this score, the system displays <em>&ldquo;Face comparison could not be reliably assessed&rdquo;</em> and never forces a false match/mismatch.
+                Prevents false matches when images are blurry, obscured, or low resolution.
               </span>
             </div>
           </div>
@@ -208,18 +217,19 @@ export const SettingsPage: React.FC = () => {
         {/* Submit */}
         <div className="flex items-center justify-end gap-3">
           {saved && (
-            <span className="inline-flex items-center gap-1 text-xs text-emerald-700 font-semibold">
+            <span className="inline-flex items-center gap-1 text-xs text-emerald-700 font-bold">
               <Check className="w-4 h-4" />
-              <span>Settings Saved Successfully</span>
+              <span>Configuration Saved Successfully</span>
             </span>
           )}
-          <button
+          <Button
             type="submit"
-            className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-lg bg-brand-800 hover:bg-brand-900 text-white shadow transition active:scale-95"
+            variant="sovereign"
+            size="md"
+            leftIcon={<Save className="w-4 h-4" />}
           >
-            <Save className="w-4 h-4" />
-            <span>Save Configuration</span>
-          </button>
+            Save Configuration
+          </Button>
         </div>
 
       </form>

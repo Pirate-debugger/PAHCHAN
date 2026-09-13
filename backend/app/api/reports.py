@@ -1,9 +1,10 @@
-from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.core.database import get_db
+from app.core.security_privacy import mask_document_number
 from app.models.screening import ScreeningSession
 from app.services.report_service import report_service
 from app.services.audit_service import AuditService
@@ -11,16 +12,27 @@ from app.services.audit_service import AuditService
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
 @router.get("")
-def list_reports(limit: int = 50, db: Session = Depends(get_db)):
-    """List available official screening reports"""
-    sessions = db.query(ScreeningSession).filter(
-        ScreeningSession.status == "COMPLETED"
-    ).order_by(desc(ScreeningSession.updated_at)).limit(limit).all()
+def list_reports(
+    status: Optional[str] = None,
+    limit: int = Query(50, le=200),
+    db: Session = Depends(get_db)
+):
+    """List available official screening reports with optional status filtering"""
+    query = db.query(ScreeningSession)
+
+    if status and status != "ALL":
+        query = query.filter(ScreeningSession.status == status)
+    else:
+        # Default to cases that have completed initial analysis
+        query = query.filter(ScreeningSession.status.in_(["COMPLETED", "IN_REVIEW"]))
+
+    sessions = query.order_by(desc(ScreeningSession.updated_at)).limit(limit).all()
 
     summaries = []
     for s in sessions:
         name_field = next((f.field_value for f in s.extracted_fields if f.field_key == "full_name"), "N/A")
         doc_num = next((f.field_value for f in s.extracted_fields if f.field_key == "document_number"), "N/A")
+        masked_num = mask_document_number(doc_num, s.document_type) if doc_num != "N/A" else "N/A"
         score = s.risk_assessment.total_score if s.risk_assessment else 0
         lvl = s.risk_assessment.risk_level if s.risk_assessment else "PENDING"
         decision = s.decisions[-1].decision if s.decisions else "PENDING"
@@ -30,6 +42,7 @@ def list_reports(limit: int = 50, db: Session = Depends(get_db)):
             "case_id": s.id,
             "subject_name": name_field,
             "document_number": doc_num,
+            "masked_document_number": masked_num,
             "document_type": s.document_type,
             "screening_date": s.created_at.isoformat(),
             "risk_level": lvl,

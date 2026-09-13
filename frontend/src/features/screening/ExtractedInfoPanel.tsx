@@ -1,6 +1,19 @@
 import React, { useState } from 'react';
 import { ExtractedField } from '../../types';
-import { Check, AlertCircle, Edit2, Copy, CheckCircle2, ShieldCheck, XCircle } from 'lucide-react';
+import {
+  Check,
+  AlertCircle,
+  Edit2,
+  Copy,
+  CheckCircle2,
+  ShieldCheck,
+  XCircle,
+  Crosshair,
+  User,
+  CreditCard,
+  FileCode2
+} from 'lucide-react';
+import { Button } from '../../components/ui/Button';
 
 interface ExtractedInfoPanelProps {
   fields: ExtractedField[];
@@ -41,7 +54,7 @@ export const ExtractedInfoPanel: React.FC<ExtractedInfoPanelProps> = ({
     if (!editingKey) return;
     try {
       setSaving(true);
-      await onEditField(editingKey, editValue, editNotes || 'Border officer manual verification correction');
+      await onEditField(editingKey, editValue, editNotes || 'Frontline officer verification correction');
       setEditingKey(null);
     } catch (err) {
       console.error(err);
@@ -57,51 +70,56 @@ export const ExtractedInfoPanel: React.FC<ExtractedInfoPanelProps> = ({
     setTimeout(() => setCopiedKey(null), 1500);
   };
 
-  // Group fields into displayable primary identity fields
+  // Group fields
   const primaryFields = fields.filter((f) => f.field_key !== 'mrz_raw');
   const mrzField = fields.find((f) => f.field_key === 'mrz_raw');
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-subtle overflow-hidden flex flex-col h-full">
       
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between">
+      {/* Panel Header */}
+      <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
         <div>
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">Extracted Data &amp; OCR</h3>
-          <p className="text-[10px] text-slate-500">Hover or click to link field to document source</p>
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+            <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+            <span>Extracted Identity Data</span>
+          </h3>
+          <p className="text-[10px] text-slate-500">Click field to locate bounding box on document</p>
         </div>
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200 font-semibold">
-          FIELD &rarr; SOURCE
+        <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+          FIELD &rarr; CANVAS
         </span>
       </div>
 
       {/* Fields List */}
-      <div className="p-3 overflow-y-auto divide-y divide-slate-100 flex-1 space-y-1.5">
+      <div className="p-3 overflow-y-auto divide-y divide-slate-100 flex-1 space-y-1">
         {primaryFields.map((f) => {
           const isSelected = selectedFieldKey === f.field_key;
           const isHighConf = f.confidence >= 0.85;
 
           if (editingKey === f.field_key) {
             return (
-              <form key={f.id} onSubmit={saveEdit} className="py-2 space-y-2 bg-blue-50/60 p-2.5 rounded-lg border border-blue-200 shadow-sm">
+              <form key={f.id} onSubmit={saveEdit} className="py-2.5 space-y-2 bg-blue-50/70 p-3 rounded-xl border border-blue-200 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">{f.field_label}</span>
-                  <span className="text-[10px] text-blue-700 font-semibold">Audit Tracked Correction</span>
+                  <span className="text-xs font-bold text-blue-950">{f.field_label}</span>
+                  <span className="text-[9px] font-mono font-bold text-blue-700 uppercase bg-blue-100 px-1.5 py-0.2 rounded">
+                    Audit Tracked Correction
+                  </span>
                 </div>
                 <input
                   type="text"
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs rounded border border-blue-400 font-mono font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-blue-400 font-mono font-bold bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
                   autoFocus
                 />
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 pt-0.5">
                   {['Glare correction', 'OCR transposition', 'Visual override'].map((reason) => (
                     <button
                       key={reason}
                       type="button"
                       onClick={() => setEditNotes(reason)}
-                      className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100/70 text-blue-800 hover:bg-blue-200"
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-white text-blue-800 hover:bg-blue-100 border border-blue-200 font-medium"
                     >
                       {reason}
                     </button>
@@ -111,24 +129,25 @@ export const ExtractedInfoPanel: React.FC<ExtractedInfoPanelProps> = ({
                   type="text"
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
-                  placeholder="Reason for change..."
-                  className="w-full px-2 py-1 text-[11px] rounded border border-slate-200 bg-white"
+                  placeholder="Official reason for field correction..."
+                  className="w-full px-2.5 py-1 text-[11px] rounded-lg border border-slate-200 bg-white"
                 />
                 <div className="flex items-center justify-end gap-1.5 pt-1">
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    className="px-2 py-1 text-[11px] rounded text-slate-600 hover:bg-slate-200"
+                    className="px-2.5 py-1 text-[11px] font-medium rounded-md text-slate-600 hover:bg-slate-200"
                   >
                     Cancel
                   </button>
-                  <button
+                  <Button
                     type="submit"
-                    disabled={saving}
-                    className="px-3 py-1 text-[11px] font-bold rounded bg-blue-600 hover:bg-blue-500 text-white shadow-sm"
+                    variant="primary"
+                    size="xs"
+                    isLoading={saving}
                   >
-                    {saving ? 'Saving...' : 'Save'}
-                  </button>
+                    Save Correction
+                  </Button>
                 </div>
               </form>
             );
@@ -140,9 +159,9 @@ export const ExtractedInfoPanel: React.FC<ExtractedInfoPanelProps> = ({
               onClick={() => onSelectField(f.field_key)}
               onMouseEnter={() => onHoverField && onHoverField(f.field_key)}
               onMouseLeave={() => onHoverField && onHoverField(null)}
-              className={`py-2 px-2.5 rounded-lg cursor-pointer transition-all flex items-center justify-between ${
+              className={`py-2 px-2.5 rounded-xl cursor-pointer transition-all flex items-center justify-between group ${
                 isSelected
-                  ? 'bg-blue-50 border border-blue-300 shadow-sm ring-1 ring-blue-300'
+                  ? 'bg-blue-50 border border-blue-400/80 shadow-xs ring-1 ring-blue-400'
                   : 'hover:bg-slate-50 border border-transparent'
               }`}
             >
@@ -155,24 +174,24 @@ export const ExtractedInfoPanel: React.FC<ExtractedInfoPanelProps> = ({
                     {f.field_value || '—'}
                   </span>
                   {f.is_edited && (
-                    <span className="text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200 font-semibold shrink-0">
-                      Edited
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 font-semibold shrink-0">
+                      EDITED
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                {/* Confidence Chip */}
+              <div className="flex items-center gap-1 shrink-0">
+                {/* Confidence Badge */}
                 {isHighConf ? (
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                    <Check className="w-2.5 h-2.5 text-emerald-600" />
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-mono">
+                    <Check className="w-2.5 h-2.5 stroke-[2.5]" />
                     <span>{(f.confidence * 100).toFixed(0)}%</span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                    <AlertCircle className="w-2.5 h-2.5 text-amber-600" />
-                    <span>Review</span>
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-mono">
+                    <AlertCircle className="w-2.5 h-2.5" />
+                    <span>LOW</span>
                   </span>
                 )}
 
@@ -181,7 +200,7 @@ export const ExtractedInfoPanel: React.FC<ExtractedInfoPanelProps> = ({
                   <button
                     type="button"
                     onClick={(e) => handleCopy(f.field_key, f.field_value || '', e)}
-                    className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition"
+                    className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 transition"
                     title="Copy value"
                   >
                     {copiedKey === f.field_key ? (
@@ -196,7 +215,7 @@ export const ExtractedInfoPanel: React.FC<ExtractedInfoPanelProps> = ({
                 <button
                   type="button"
                   onClick={(e) => startEdit(f, e)}
-                  className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition"
+                  className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
                   title="Correct field with audit trail"
                 >
                   <Edit2 className="w-3 h-3" />
@@ -212,36 +231,38 @@ export const ExtractedInfoPanel: React.FC<ExtractedInfoPanelProps> = ({
             onClick={() => onSelectField('mrz_raw')}
             onMouseEnter={() => onHoverField && onHoverField('mrz_raw')}
             onMouseLeave={() => onHoverField && onHoverField(null)}
-            className={`p-2.5 rounded-lg border cursor-pointer transition ${
+            className={`p-3 rounded-xl border cursor-pointer transition-all mt-3 ${
               selectedFieldKey === 'mrz_raw'
-                ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300'
+                ? 'bg-blue-50/80 border-blue-400 ring-1 ring-blue-400 shadow-xs'
                 : 'bg-slate-50 border-slate-200 hover:border-slate-300'
             }`}
           >
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] uppercase font-bold text-slate-600 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-brand-700" />
-                <span>ICAO Doc 9303 MRZ</span>
+              <span className="text-[10px] uppercase font-bold text-slate-700 flex items-center gap-1.5">
+                <FileCode2 className="w-3.5 h-3.5 text-blue-600" />
+                <span>ICAO Doc 9303 MRZ TD3</span>
               </span>
-              <span className="text-[10px] text-emerald-700 font-mono font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                Parsed TD3
+              <span className="text-[9px] text-emerald-700 font-mono font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                PARSED 7-3-1
               </span>
             </div>
-            <pre className="text-[10px] font-mono text-slate-800 bg-white p-1.5 rounded border border-slate-200 tracking-wider overflow-x-auto leading-relaxed whitespace-pre-wrap">
+
+            <pre className="text-[10px] font-mono text-slate-900 bg-slate-950 text-cyan-300 p-2 rounded-lg border border-slate-800 tracking-wider overflow-x-auto leading-relaxed whitespace-pre-wrap shadow-inner">
               {mrzField.field_value}
             </pre>
-            <div className="mt-2 grid grid-cols-2 gap-1 text-[9px] font-mono text-slate-500">
-              <span className="flex items-center gap-1 text-emerald-700 font-semibold">
-                ✓ Doc No Check (7-3-1)
+
+            <div className="mt-2.5 grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+              <span className="flex items-center gap-1 text-emerald-700 font-bold bg-white p-1 rounded border border-slate-200">
+                <Check className="w-3 h-3 stroke-[3]" /> Doc No Check
               </span>
-              <span className="flex items-center gap-1 text-emerald-700 font-semibold">
-                ✓ DOB Check (7-3-1)
+              <span className="flex items-center gap-1 text-emerald-700 font-bold bg-white p-1 rounded border border-slate-200">
+                <Check className="w-3 h-3 stroke-[3]" /> DOB Check
               </span>
-              <span className="flex items-center gap-1 text-emerald-700 font-semibold">
-                ✓ Expiry Check (7-3-1)
+              <span className="flex items-center gap-1 text-emerald-700 font-bold bg-white p-1 rounded border border-slate-200">
+                <Check className="w-3 h-3 stroke-[3]" /> Expiry Check
               </span>
-              <span className="flex items-center gap-1 text-emerald-700 font-semibold">
-                ✓ Composite Check (7-3-1)
+              <span className="flex items-center gap-1 text-emerald-700 font-bold bg-white p-1 rounded border border-slate-200">
+                <Check className="w-3 h-3 stroke-[3]" /> Composite Check
               </span>
             </div>
           </div>

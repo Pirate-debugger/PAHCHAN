@@ -171,6 +171,19 @@ class FaceService:
                 p_crop = presented_img[py:py+ph, px:px+pw]
 
         # 3. Compute Normalized Feature Similarity
+        if portrait_crop is None or portrait_crop.size == 0 or p_crop is None or p_crop.size == 0:
+            return {
+                "portrait_url": portrait_url,
+                "presented_url": presented_url,
+                "outcome": "UNABLE_TO_ASSESS",
+                "similarity_score": 0.0,
+                "quality_score": q_score,
+                "quality_assessment": "Face could not be cropped from document or presented image.",
+                "explanation": "Biometric face comparison unable to extract valid facial region.",
+                "recommendation": "Inspect physical document portrait manually.",
+                "risk_contribution": 10
+            }
+
         p1 = cv2.resize(portrait_crop, (128, 128))
         p2 = cv2.resize(p_crop, (128, 128))
 
